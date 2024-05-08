@@ -34,7 +34,7 @@ namespace env
 		inline void setAcceleration(const fcl::Vector3f &acceleration_) { acceleration = acceleration_; }
 		inline void setMaxVel(float max_vel_) { max_vel = max_vel_; }
 		inline void setMaxAcc(float max_acc_) { max_acc = max_acc_; }
-
+		void setQuatRotation(const fcl::Quaternionf& q);
         friend std::ostream &operator<<(std::ostream &os, const std::shared_ptr<env::Object> obj);
 
 	protected:

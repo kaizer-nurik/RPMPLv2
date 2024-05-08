@@ -1,6 +1,30 @@
 #include "DRGBT.h"
 #include "ConfigurationReader.h"
 #include "CommonFunctions.h"
+#include "rapidjson/document.h"
+#include "rapidjson/writer.h"
+#include "rapidjson/stringbuffer.h"
+#include <iostream>
+#include "RealVectorSpaceFCL.h"
+#include "RealVectorSpaceState.h"
+
+auto read_file(std::string path) -> std::string {
+    constexpr auto read_size = std::size_t(4096);
+    auto stream = std::ifstream(path);
+    stream.exceptions(std::ios_base::badbit);
+
+    if (not stream) {
+        throw std::ios_base::failure("file does not exist");
+    }
+    
+    auto out = std::string();
+    auto buf = std::string(read_size, '\0');
+    while (stream.read(& buf[0], read_size)) {
+        out.append(buf, 0, stream.gcount());
+    }
+    out.append(buf, 0, stream.gcount());
+    return out;
+}
 
 int main(int argc, char **argv)
 {
@@ -39,15 +63,43 @@ int main(int argc, char **argv)
 	const size_t max_num_obs { node["random_obstacles"]["max_num"].as<size_t>() };
 	const float max_vel_obs { node["random_obstacles"]["max_vel"].as<float>() };
 	const float max_acc_obs { node["random_obstacles"]["max_acc"].as<float>() };
-	DRGBTConfig::MAX_NUM_VALIDITY_CHECKS = std::ceil((max_vel_obs * DRGBTConfig::MAX_ITER_TIME) / 0.01); // In order to obtain check when obstacle moves at most 1 [cm]
+	DRGBTConfig::MAX_NUM_VALIDITY_CHECKS = 1; // In order to obtain check when obstacle moves at most 1 [cm]
 	Eigen::Vector3f obs_dim {};
-	for (size_t i = 0; i < 3; i++)
-		obs_dim(i) = node["random_obstacles"]["dim"][i].as<float>();
+
 
 	size_t init_num_test { node["testing"]["init_num"].as<size_t>() };
 	size_t init_num_success_test { node["testing"]["init_num_success"].as<size_t>() };
 	const size_t max_num_tests { node["testing"]["max_num"].as<size_t>() };
 	bool reach_successful_tests { node["testing"]["reach_successful_tests"].as<bool>() };
+
+	// rapidjson/example/simpledom/simpledom.cpp`
+
+    // 1. Parse a JSON string into DOM.
+	
+    std::string json = read_file("./scene.json");
+    rapidjson::Document document;
+    document.Parse(json.c_str());
+
+
+	
+
+	std::vector<float> start_conf;
+	const rapidjson::Value& start_conf_json = document["start_configuration"]; // Using a reference for consecutive access is handy and faster.
+	for (rapidjson::SizeType i = 0; i < start_conf_json.Size(); i++){ // rapidjson uses SizeType instead of size_t.
+		start_conf.push_back(start_conf_json[i].GetFloat());
+	}
+	Eigen::VectorXf start_conf_eig = Eigen::VectorXf::Map(&start_conf[0], start_conf.size());
+
+		
+    std::vector<float> end_conf;
+	const rapidjson::Value& end_conf_json = document["end_configuration"]; // Using a reference for consecutive access is handy and faster.
+	for (rapidjson::SizeType i = 0; i < end_conf_json.Size(); i++){ // rapidjson uses SizeType instead of size_t.
+		end_conf.push_back(end_conf_json[i].GetFloat());
+	}
+	Eigen::VectorXf end_conf_eig = Eigen::VectorXf::Map(&end_conf[0], end_conf.size());
+
+	DRGBTConfig::MAX_PLANNING_TIME = 1000000000000000;
+
     if (DRGBTConfig::STATIC_PLANNER_TYPE == planning::PlannerType::RGBMTStar) {
         RGBMTStarConfig::TERMINATE_WHEN_PATH_IS_FOUND = true;
 	}
@@ -98,22 +150,24 @@ int main(int argc, char **argv)
 			{
 				scenario::Scenario scenario(scenario_file_path, project_path);
 				std::shared_ptr<base::StateSpace> ss { scenario.getStateSpace() };
-				std::shared_ptr<base::State> q_start { scenario.getStart() };
-				std::shared_ptr<base::State> q_goal { scenario.getGoal() };
-				std::shared_ptr<env::Environment> env { scenario.getEnvironment() };
+				// std::shared_ptr<base::State q_start { scenario.getStart() };
+				std::shared_ptr<base::State> q_start {  std::make_shared<base::RealVectorSpaceState>(start_conf_eig) };
+				// std::shared_ptr<base::State> q_goal { scenario.getGoal() };
+				std::shared_ptr<base::State> q_goal { std::make_shared<base::RealVectorSpaceState>(end_conf_eig )};
+				std::shared_ptr<env::Environment> env {  scenario.getEnvironment() };
 				std::unique_ptr<planning::AbstractPlanner> planner { nullptr };
 				
 				env->setBaseRadius(std::max(ss->robot->getCapsuleRadius(0), ss->robot->getCapsuleRadius(1)) + obs_dim.norm());
 				env->setRobotMaxVel(ss->robot->getMaxVel(0)); 	// Only velocity of the first joint matters				
-				initRandomObstacles(init_num_obs, obs_dim, scenario, max_vel_obs, max_acc_obs);
-
+				// initRandomObstacles(init_num_obs, obs_dim, scenario, max_vel_obs, max_acc_obs);
+				env->parse_json_document(document);
 				LOG(INFO) << "Test number: " << num_test;
 				LOG(INFO) << "Using scenario: " << project_path + scenario_file_path;
 				LOG(INFO) << "Environment parts: " << env->getNumObjects();
 				LOG(INFO) << "Number of DOFs: " << ss->num_dimensions;
 				LOG(INFO) << "State space type: " << ss->getStateSpaceType();
-				LOG(INFO) << "Start: " << scenario.getStart();
-				LOG(INFO) << "Goal: " << scenario.getGoal();
+				LOG(INFO) << "Start: " << q_start;
+				LOG(INFO) << "Goal: " << q_goal;
 				
 				planner = std::make_unique<planning::drbt::DRGBT>(ss, q_start, q_goal);
 				bool result { planner->solve() };
@@ -122,10 +176,10 @@ int main(int argc, char **argv)
 				LOG(INFO) << "Number of iterations: " << planner->getPlannerInfo()->getNumIterations();
 				LOG(INFO) << "Algorithm time: " << planner->getPlannerInfo()->getPlanningTime() << " [s]";
 				LOG(INFO) << "Task 1 interrupted: " << (planner->getPlannerInfo()->getTask1Interrupted() ? "true" : "false");
-				// LOG(INFO) << "Planner data is saved at: " << project_path + scenario_file_path.substr(0, scenario_file_path.size()-5) 
-				// 		  	 + "_drgbt_test" + std::to_string(num_test) + ".log";
-				// planner->outputPlannerData(project_path + scenario_file_path.substr(0, scenario_file_path.size()-5) 
-				// 						   + "_drgbt_test" + std::to_string(num_test) + ".log");
+				LOG(INFO) << "Planner data is saved at: " << project_path + scenario_file_path.substr(0, scenario_file_path.size()-5) 
+						  	 + "_drgbt_test" + std::to_string(num_test) + ".log";
+				planner->outputPlannerData(project_path + scenario_file_path.substr(0, scenario_file_path.size()-5) 
+										   + "_drgbt_test" + std::to_string(num_test) + ".log");
 
 				float path_length { 0 };
 				if (result)

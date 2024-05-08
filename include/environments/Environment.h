@@ -8,6 +8,9 @@
 
 #include "Box.h"
 
+#include "rapidjson/document.h"
+#include "rapidjson/stringbuffer.h"
+
 namespace env
 {	
 	class Environment
@@ -35,14 +38,19 @@ namespace env
 		void removeAllObjects();
 		bool isValid(const Eigen::Vector3f &pos, float vel);
 		void updateEnvironment(float delta_time);
-
+		void parse_json_document(rapidjson::Document& doc);
+		inline float getTime(){return elapsed_time;}
 	private:
 		std::vector<std::shared_ptr<env::Object>> objects;		// All objects/parts of the environment
+		std::map<std::shared_ptr<env::Object>, std::vector<float>> objects_coords;
         fcl::Vector3f WS_center;								// Workspace center point in [m]
         float WS_radius; 										// Workspace radius in [m]
 		float base_radius;
 		float robot_max_vel;
 		bool table_included;
+		float elapsed_time = 0;
+		int fps=0;
+		int frame_count=0;
 	};
 }
 #endif //RPMPL_ENVIRONMENT_H

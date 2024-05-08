@@ -31,6 +31,7 @@ namespace base
 		std::shared_ptr<std::vector<Eigen::MatrixXf>> nearest_points;	// Set of nearest points between each robot segment and each obstacle
 		std::shared_ptr<State> parent;
 		std::shared_ptr<std::vector<std::shared_ptr<State>>> children;
+		float moment_in_time =0;                                           //moment in time of state
 		
 	public:
 		State() {}
@@ -47,6 +48,7 @@ namespace base
 		inline const std::vector<float> &getDistanceProfile() const {return d_c_profile; }
 		inline bool getIsRealDistance() const { return is_real_d_c; }
 		inline float getCost() const { return cost; }
+		inline float getTime() const {return moment_in_time;}
 		inline std::shared_ptr<std::vector<Eigen::MatrixXf>> getNearestPoints() const { return nearest_points; }
 		inline std::shared_ptr<State> getParent() const { return parent; }
 		inline std::shared_ptr<std::vector<std::shared_ptr<State>>> getChildren() const { return children; };
@@ -64,7 +66,7 @@ namespace base
 		inline void setNearestPoints(const std::shared_ptr<std::vector<Eigen::MatrixXf>> nearest_points_) { nearest_points = nearest_points_; }
 		inline void setParent(const std::shared_ptr<State> parent_) { parent = parent_; }
 		inline void setChildren(const std::shared_ptr<std::vector<std::shared_ptr<State>>> children_) { children = children_; }
-
+		inline void setTime(const float _time){moment_in_time = _time;}
 		void addChild(const std::shared_ptr<State> child);
 		friend std::ostream &operator<<(std::ostream &os, const std::shared_ptr<base::State> state);
 	};

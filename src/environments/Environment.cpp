@@ -9,6 +9,8 @@
 #include "yaml-cpp/parser.h"
 #include "yaml-cpp/node/node.h"
 #include "yaml-cpp/node/parse.h"
+#include "rapidjson/document.h"
+#include "rapidjson/stringbuffer.h"
 
 env::Environment::Environment(const std::string &config_file_path, const std::string &root_path)
 {
@@ -168,45 +170,57 @@ bool env::Environment::isValid(const Eigen::Vector3f &pos, float vel)
 
 void env::Environment::updateEnvironment(float delta_time)
 {
-    float vel_intensity;
-    fcl::Vector3f pos, vel;
-
-    for (size_t i = 0; i < objects.size(); i++)
-    {
-        // std::cout << objects[i];
-        if (objects[i]->getLabel() != "dynamic_obstacle")
-            continue;
-
-        vel = objects[i]->getVelocity() + objects[i]->getAcceleration() * delta_time;
-        pos = objects[i]->getPosition() + vel * delta_time;
-        vel_intensity = vel.norm();
-        // std::cout << i << ". position: " << pos.transpose() << "\n";
-        // std::cout << i << ". vel_intensity: " << vel_intensity << "\n";
-
-        if (vel_intensity > objects[i]->getMaxVel())
-        {
-            // std::cout << i << ". Invalid object velocity. Computing new acceleration.\n";
-            fcl::Vector3f acc = fcl::Vector3f::Random(3);
-            acc.normalize();
-            objects[i]->setAcceleration(objects[i]->getAcceleration().norm() * acc);
-            i--;
-        }
-        else if (!isValid(pos, vel_intensity))
-        {
-            // std::cout << i << ". position: " << pos.transpose() << "\n";
-            // std::cout << i << ". Invalid object position. Computing new velocity.\n";
-            vel = fcl::Vector3f::Random(3);
-            vel.normalize();
-            objects[i]->setVelocity(vel_intensity * vel);
-            i--;
-        }
-        else
-        {
-            objects[i]->setVelocity(vel);
-            objects[i]->setPosition(pos);
-            // std::cout << i << ". position successfully computed: " << pos.transpose() << "\n";
-            // std::cout << i << ". " << objects[i];
-        }
+    elapsed_time += delta_time;
+    for (auto& [key, value] : objects_coords){
+        fcl::Quaternionf q;
+        int frame = std::floor(elapsed_time*fps)*6;
+        Eigen::Vector3f pos{value[0+frame],value[1+frame],value[2+frame]};
+        std::vector<float> rot(value.begin()+3+frame, value.begin()+5+frame);
+        q = Eigen::AngleAxisf(rot[0], Eigen::Vector3f::UnitX())
+            * Eigen::AngleAxisf(rot[1], Eigen::Vector3f::UnitY())
+            * Eigen::AngleAxisf(rot[2], Eigen::Vector3f::UnitZ());
+        key->setQuatRotation(q);
+        key->setPosition(pos);
     }
+
+
     // std::cout << "-------------------------------------------------" << std::endl;
+}
+
+
+void env::Environment::parse_json_document(rapidjson::Document& doc){
+    fps  = doc["fps"].GetInt();
+	frame_count  = doc["frame_count"].GetInt();
+	const rapidjson::Value& obstacles_json = doc["obstacles"]; // Using a reference for consecutive access is handy and faster.
+	for (rapidjson::SizeType i = 0; i < obstacles_json.Size(); i++){ // rapidjson uses SizeType instead of size_t.
+		std::string label = obstacles_json[i]["name"].GetString();
+        std::shared_ptr<env::Object> object;
+
+        const rapidjson::Value& dimensions_json = obstacles_json[i]["dimensions"]; 
+        
+        fcl::Vector3f dim(dimensions_json[0].GetFloat(), dimensions_json[1].GetFloat() ,dimensions_json[2].GetFloat());
+
+
+        
+
+        std::vector<float> pos_rot_in_time;
+
+        for (auto& array_of_pos : obstacles_json[i]["positions"].GetArray()){
+            for (auto& coords : array_of_pos.GetArray()){
+                pos_rot_in_time.push_back(coords.GetFloat());
+            }
+        }
+        
+        Eigen::Vector3f pos{pos_rot_in_time[0],pos_rot_in_time[1],pos_rot_in_time[2]};
+        std::vector<float> rot(pos_rot_in_time.begin()+3, pos_rot_in_time.begin()+5);
+        fcl::Quaternionf q;
+        q = Eigen::AngleAxisf(rot[0], Eigen::Vector3f::UnitX())
+            * Eigen::AngleAxisf(rot[1], Eigen::Vector3f::UnitY())
+            * Eigen::AngleAxisf(rot[2], Eigen::Vector3f::UnitZ());
+        object = std::make_shared<env::Box>(dim, pos, q, label);
+        
+        objects_coords[object] = pos_rot_in_time;
+        objects.emplace_back(object);
+    }
+
 }

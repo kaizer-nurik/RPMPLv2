@@ -28,3 +28,9 @@ void env::Object::setPosition(const fcl::Vector3f &position_)
     coll_object->setTranslation(position);
     coll_object->computeAABB();
 }
+
+void env::Object::setQuatRotation(const fcl::Quaternionf& q)
+{ 
+    coll_object->setQuatRotation(q);
+    coll_object->computeAABB();
+}

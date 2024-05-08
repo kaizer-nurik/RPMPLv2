@@ -946,6 +946,7 @@ bool planning::drbt::DRGBT::checkMotionValidity2(size_t num_checks)
     {
         ss->env->updateEnvironment(delta_time);
         q_temp = ss->interpolateEdge(q_previous, q_current, dist * num_check / num_checks, dist);
+        q_temp->setTime(ss->env->getTime());
         path.emplace_back(q_temp);
         is_valid = ss->isValid(q_temp);
         if (!is_valid)
@@ -990,6 +991,8 @@ bool planning::drbt::DRGBT::checkMotionValidity(size_t num_checks)
             q_current = ss->getNewState(spline_current->getPosition(t));
             // std::cout << "t: " << t * 1000 << " [ms]\t from curr. spline \t" << q_current << "\n";
             ss->env->updateEnvironment(delta_time1);
+            q_current->setTime(ss->env->getTime());
+
         }
         else
         {
@@ -997,6 +1000,7 @@ bool planning::drbt::DRGBT::checkMotionValidity(size_t num_checks)
             q_current = ss->getNewState(spline_next->getPosition(t));
             // std::cout << "t: " << t * 1000 << " [ms]\t from next  spline \t" << q_current << "\n";
             ss->env->updateEnvironment(delta_time2);
+            q_current->setTime(ss->env->getTime());
         }
 
         path.emplace_back(q_current);

@@ -30,7 +30,7 @@ namespace robots
 		inline const std::vector<std::unique_ptr<fcl::CollisionObjectf>> &getLinks() const { return links; }
 		inline const std::vector<std::pair<float, float>> &getLimits() const { return limits; }
 		inline std::shared_ptr<base::State> getConfiguration() const { return configuration; }
-		inline float getCapsuleRadius(size_t idx) const { return capsules_radius[idx]; }
+		inline float getCapsuleRadius(size_t idx) const { return 0.005+(idx-idx)*0; }
 		inline float getMaxVel(size_t idx) const { return max_vel[idx]; }
 		inline float getMaxAcc(size_t idx) const { return max_acc[idx]; }
 		inline float getMaxJerk(size_t idx) const { return max_jerk[idx]; }

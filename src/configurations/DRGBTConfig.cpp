@@ -6,7 +6,7 @@
 
 size_t DRGBTConfig::MAX_NUM_ITER                                        = 1e9;
 float DRGBTConfig::MAX_ITER_TIME                                        = 0.050;
-float DRGBTConfig::MAX_PLANNING_TIME                                    = 60;
+float DRGBTConfig::MAX_PLANNING_TIME                                    = 10000000000;
 size_t DRGBTConfig::INIT_HORIZON_SIZE                                   = 10;
 float DRGBTConfig::TRESHOLD_WEIGHT                                      = 0.5;
 float DRGBTConfig::D_CRIT                                               = 0.05;
