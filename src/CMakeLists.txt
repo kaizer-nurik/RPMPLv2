@@ -34,6 +34,10 @@ target_include_directories(rpmpl_library PUBLIC ${INCLUDE_DIRS})
 # All users of this library will need at least C++17
 target_compile_features(rpmpl_library PUBLIC cxx_std_17)
 
+add_executable(main main.cpp)
+target_compile_features(main PRIVATE cxx_std_17)
+target_link_libraries(main PUBLIC rpmpl_library ${PROJECT_LIBRARIES})
+target_include_directories(main PUBLIC ${PROJECT_SOURCE_DIR}/apps)
 # IDEs should put the headers in a nice place
 source_group(
   TREE "${PROJECT_SOURCE_DIR}/include"

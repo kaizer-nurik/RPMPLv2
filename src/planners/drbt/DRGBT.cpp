@@ -943,10 +943,13 @@ bool planning::drbt::DRGBT::checkMotionValidity2(size_t num_checks)
     bool is_valid { true };
 
     for (size_t num_check = 1; num_check <= num_checks; num_check++)
-    {
+    {   
+        
         ss->env->updateEnvironment(delta_time);
         q_temp = ss->interpolateEdge(q_previous, q_current, dist * num_check / num_checks, dist);
         q_temp->setTime(ss->env->getTime());
+        std::cout<<ss->env->getTime()<<std::endl;
+        std::cout<<q_temp<<std::endl;
         path.emplace_back(q_temp);
         is_valid = ss->isValid(q_temp);
         if (!is_valid)

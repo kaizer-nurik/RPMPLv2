@@ -227,7 +227,7 @@ bool base::RealVectorSpace::isValid(const std::shared_ptr<base::State> q)
 				Eigen::VectorXf obs(6);
 				obs << AABB.min_[0], AABB.min_[1], AABB.min_[2], AABB.max_[0], AABB.max_[1], AABB.max_[2];
 				// if (collisionCapsuleToBox(skeleton->col(i), skeleton->col(i+1), robot->getCapsuleRadius(i), obs))
-				if (collisionCapsuleToBox(skeleton->col(i), skeleton->col(i+1), 0.05, obs))
+				if (collisionCapsuleToBox(skeleton->col(i), skeleton->col(i+1), 0.005, obs))
 					return false;
             }
 			else if (env->getCollObject(j)->getNodeType() == fcl::NODE_TYPE::GEOM_SPHERE)

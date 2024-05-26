@@ -154,6 +154,8 @@ bool env::Environment::isValid(const Eigen::Vector3f &pos, float vel)
     }
 
     return true;
+
+
 }
 
 // void env::Environment::updateEnvironment(float delta_time)
@@ -172,13 +174,14 @@ void env::Environment::updateEnvironment(float delta_time)
 {
     elapsed_time += delta_time;
     for (auto& [key, value] : objects_coords){
-        fcl::Quaternionf q;
-        int frame = std::floor(elapsed_time*fps)*6;
+        int frame = std::floor(elapsed_time*fps)*7;
         Eigen::Vector3f pos{value[0+frame],value[1+frame],value[2+frame]};
-        std::vector<float> rot(value.begin()+3+frame, value.begin()+5+frame);
-        q = Eigen::AngleAxisf(rot[0], Eigen::Vector3f::UnitX())
-            * Eigen::AngleAxisf(rot[1], Eigen::Vector3f::UnitY())
-            * Eigen::AngleAxisf(rot[2], Eigen::Vector3f::UnitZ());
+        fcl::Quaternionf q(value[6+frame],value[3+frame],value[4+frame],value[5+frame]);
+        // uncomment if q is in euler
+        // std::vector<float> rot(value.begin()+3+frame, value.begin()+5+frame);
+        // q = Eigen::AngleAxisf(rot[0], Eigen::Vector3f::UnitX())
+        //     * Eigen::AngleAxisf(rot[1], Eigen::Vector3f::UnitY())
+        //     * Eigen::AngleAxisf(rot[2], Eigen::Vector3f::UnitZ());
         key->setQuatRotation(q);
         key->setPosition(pos);
     }
@@ -212,11 +215,12 @@ void env::Environment::parse_json_document(rapidjson::Document& doc){
         }
         
         Eigen::Vector3f pos{pos_rot_in_time[0],pos_rot_in_time[1],pos_rot_in_time[2]};
-        std::vector<float> rot(pos_rot_in_time.begin()+3, pos_rot_in_time.begin()+5);
-        fcl::Quaternionf q;
-        q = Eigen::AngleAxisf(rot[0], Eigen::Vector3f::UnitX())
-            * Eigen::AngleAxisf(rot[1], Eigen::Vector3f::UnitY())
-            * Eigen::AngleAxisf(rot[2], Eigen::Vector3f::UnitZ());
+        std::vector<float> rot(pos_rot_in_time.begin()+3, pos_rot_in_time.begin()+pos_rot_in_time.size()-3);
+        fcl::Quaternionf q(rot[3],rot[0],rot[1],rot[2]);
+        // uncomment if q is in euler
+        // q = Eigen::AngleAxisf(rot[0], Eigen::Vector3f::UnitX()) 
+        //     * Eigen::AngleAxisf(rot[1], Eigen::Vector3f::UnitY())
+        //     * Eigen::AngleAxisf(rot[2], Eigen::Vector3f::UnitZ());
         object = std::make_shared<env::Box>(dim, pos, q, label);
         
         objects_coords[object] = pos_rot_in_time;
