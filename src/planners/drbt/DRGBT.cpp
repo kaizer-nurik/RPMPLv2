@@ -87,7 +87,7 @@ bool planning::drbt::DRGBT::solve()
             d_c = ss->computeDistance(q_target, true);     // ~ 1 [ms]
             clearHorizon(base::State::Status::Trapped, true);
             q_next = std::make_shared<planning::drbt::HorizonState>(q_target, 0);
-            // std::cout << "Not updating the robot current state since d_c < 0. \n";
+            std::cout << "Not updating the robot current state since d_c < 0. \n";
         }
         planner_info->addRoutineTime(getElapsedTime(time_computeDistance, planning::TimeUnit::us), 1);
 
@@ -99,16 +99,7 @@ bool planning::drbt::DRGBT::solve()
         generateGBur();                 // ~ 10 [ms] Time consuming routine... 
         computeNextState();             // ~ 1 [us]
         
-        switch (DRGBTConfig::TRAJECTORY_INTERPOLATION)
-        {
-        case planning::TrajectoryInterpolation::Spline:
-            updateCurrentState();       // ~ 1 [ms]
-            break;
-        
-        case planning::TrajectoryInterpolation::None:
-            updateCurrentState2();      // ~ 1 [us]
-            break;
-        }
+        updateCurrentState2(); 
 
         // std::cout << "Time elapsed: " << getElapsedTime(time_iter_start, planning::TimeUnit::ms) << " [ms] \n";
 
@@ -132,16 +123,7 @@ bool planning::drbt::DRGBT::solve()
         // ------------------------------------------------------------------------------- //
         // Update environment and check if the collision occurs
         bool is_valid { false };
-        switch (DRGBTConfig::TRAJECTORY_INTERPOLATION)
-        {
-        case planning::TrajectoryInterpolation::Spline:
-            is_valid = checkMotionValidity();
-            break;
-        
-        case planning::TrajectoryInterpolation::None:
-            is_valid = checkMotionValidity2();
-            break;
-        }
+        is_valid = checkMotionValidity2();
 
         if (!is_valid)
         {
@@ -461,7 +443,8 @@ void planning::drbt::DRGBT::computeReachedState(const std::shared_ptr<planning::
     q->setIsReached(status == base::State::Status::Reached ? true : false);
 
     // TODO: If there is enough remaining time, compute real distance-to-obstacles 
-    float d_c = ss->computeDistanceUnderestimation(q_reached, q_target->getNearestPoints());
+    // float d_c = ss->computeDistanceUnderestimation(q_reached, q_target->getNearestPoints());
+    float d_c = ss->computeDistance(q_reached);
     if (q->getDistance() != -1)
         q->setDistancePrevious(q->getDistance());
     else
@@ -570,13 +553,13 @@ void planning::drbt::DRGBT::computeNextState()
     }
     else    // All states are critical, and q_next cannot be updated! 'status' will surely become Trapped
     {
-        // std::cout << "All states are critical, and q_next cannot be updated! \n";
+        std::cout << "All states are critical, and q_next cannot be updated! \n";
         q_next = std::make_shared<planning::drbt::HorizonState>(q_target, 0);
         q_next->setStateReached(q_target);
     }
 
     q_next_previous = q_next;
-    // std::cout << "Setting the robot next state to: " << q_next->getCoord().transpose() << "\n";
+    std::cout << "Setting the robot next state to: " << q_next->getCoord().transpose() << "\n";
     
     // std::cout << "Horizon consists of " << horizon.size() << " states: \n";
     // for (size_t i = 0; i < horizon.size(); i++)
@@ -637,9 +620,9 @@ void planning::drbt::DRGBT::updateCurrentState2()
     else
         clearHorizon(base::State::Status::Trapped, true);
 
-    // std::cout << "Status: " << (status == base::State::Status::Advanced ? "Advanced" : "")
-    //                         << (status == base::State::Status::Trapped  ? "Trapped"  : "")
-    //                         << (status == base::State::Status::Reached  ? "Reached"  : "") << "\n";
+    std::cout << "Status: " << (status == base::State::Status::Advanced ? "Advanced" : "")
+                            << (status == base::State::Status::Trapped  ? "Trapped"  : "")
+                            << (status == base::State::Status::Reached  ? "Reached"  : "") << "\n";
 }
 
 /// @brief Update the current state of the robot using 'spline_current'.
@@ -666,14 +649,10 @@ float planning::drbt::DRGBT::updateCurrentState()
 
     q_current = ss->getNewState(spline_current->getPosition(t_spline_current));
 
-    // std::cout << "Iter. time:        " << t_iter * 1000 << " [ms] \n";
-    // std::cout << "Max. spline time:  " << t_spline_max * 1000 << " [ms] \n";
-    // std::cout << "Remain. time:      " << t_iter_remain * 1000 << " [ms] \n";
-    // std::cout << "Begin spline time: " << spline_current->getTimeBegin() * 1000 << " [ms] \n";
-    // std::cout << "Curr. spline time: " << t_spline_current * 1000 << " [ms] \n";
-    // std::cout << "q_current: " << q_current << "\n";
-    // std::cout << "q_target:  " << q_target << "\n";
-    // std::cout << "q_next:    " << q_next << "\n";
+    std::cout << "Iter. time:        " << t_iter * 1000 << " [ms] \n";
+    std::cout << "q_current: " << q_current << "\n";
+    std::cout << "q_target:  " << q_target << "\n";
+    std::cout << "q_next:    " << q_next << "\n";
 
     if (ss->isEqual(q_current, q_goal))
     {
@@ -686,12 +665,12 @@ float planning::drbt::DRGBT::updateCurrentState()
     if ((q_next->getStateReached()->getCoord() - spline_current->getPosition(INFINITY)).norm() 
         < RealVectorSpaceConfig::EQUALITY_THRESHOLD)  // Coordinates of q_next_reached did not change
     {
-        // std::cout << "Not computing a new spline! \n";
+        std::cout << "Not computing a new spline! \n";
         found = false;
     }
     else if (ss->isEqual(q_next->getState(), q_target))
     {
-        // std::cout << "Robot is urgently stopping! \n";
+        std::cout << "Robot is urgently stopping! \n";
         found = false;
         // TODO: Urgently stopping needs to be implemented using quartic spline.
     }
@@ -764,7 +743,7 @@ float planning::drbt::DRGBT::updateCurrentState()
 
 bool planning::drbt::DRGBT::changeNextState(std::vector<std::shared_ptr<planning::drbt::HorizonState>> &visited_states)
 {
-    // std::cout << "Change of q_next is required! \n";
+    std::cout << "Change of q_next is required! \n";
     std::shared_ptr<planning::drbt::HorizonState> q_new { nullptr };
     float weight_max { 0 };
     bool visited { false };
@@ -834,7 +813,7 @@ bool planning::drbt::DRGBT::whetherToReplan()
 // Initialize static planner, to plan the path from 'q_target' to 'q_goal' in 'max_planning_time' 
 std::unique_ptr<planning::AbstractPlanner> planning::drbt::DRGBT::initStaticPlanner(float max_planning_time)
 {
-    // std::cout << "Static planner (for replanning): " << DRGBTConfig::STATIC_PLANNER_TYPE << "\n";
+    std::cout << "Static planner (for replanning): " << DRGBTConfig::STATIC_PLANNER_TYPE << "\n";
     switch (DRGBTConfig::STATIC_PLANNER_TYPE)
     {
     case planning::PlannerType::RGBMTStar:
@@ -866,30 +845,16 @@ void planning::drbt::DRGBT::replan(float max_planning_time)
 
     try
     {
-        if (max_planning_time <= 0)
-            throw std::runtime_error("Not enough time for replanning! ");
+        // if (max_planning_time <= 0)
+        //     throw std::runtime_error("Not enough time for replanning! ");
 
-        switch (DRGBTConfig::REAL_TIME_SCHEDULING)
-        {
-        case planning::RealTimeScheduling::FPS:
-            // std::cout << "Replanning with Fixed Priority Scheduling \n";
-            // std::cout << "Trying to replan in " << max_planning_time << " [s]... \n";
-            planner = initStaticPlanner(max_planning_time);
-            result = planner->solve();
-            break;
-        
-        case planning::RealTimeScheduling::None:
-            // std::cout << "Replanning without real-time scheduling \n";
-            // std::cout << "Trying to replan in " << max_planning_time << " [s]... \n";
-            planner = initStaticPlanner(max_planning_time);
-            result = planner->solve();
-            break;
-        }
+        planner = initStaticPlanner(10);
+        result = planner->solve();
 
         // New path is found within the specified time limit, thus update the predefined path to the goal
-        if (result && planner->getPlannerInfo()->getPlanningTime() <= max_planning_time)
+        if (result)
         {
-            // std::cout << "The path has been replanned in " << planner->getPlannerInfo()->getPlanningTime() * 1000 << " [ms]. \n";
+            std::cout << "The path has been replanned in " << planner->getPlannerInfo()->getPlanningTime() * 1000 << " [ms]. \n";
             acquirePredefinedPath(planner->getPath());
             clearHorizon(base::State::Status::Reached, false);
             q_next = std::make_shared<planning::drbt::HorizonState>(q_target, 0);
@@ -900,7 +865,7 @@ void planning::drbt::DRGBT::replan(float max_planning_time)
     }
     catch (std::exception &e)
     {
-        // std::cout << "Replanning is required. " << e.what() << "\n";
+        std::cout << "Replanning is required. " << e.what() << "\n";
         replanning = true;
     }
 }

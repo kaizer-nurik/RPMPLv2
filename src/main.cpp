@@ -1,17 +1,26 @@
-//
-// Created by dinko on 7.3.21..
-//
+// ./src/main ../../STRRT/scene_task.json ./ ../../STRRT/strrt_config.json
 #include "Scenario.h"
 
 #include "ConfigurationReader.h"
 #include "DRGBT.h"
-#include "RealVectorSpaceFCL.h"
+#include "RealVectorSpaceHPPFCL.h"
 #include "RealVectorSpaceState.h"
-#include "rapidjson/document.h"
-#include "rapidjson/pointer.h"
-#include "rapidjson/stringbuffer.h"
-#include "rapidjson/writer.h"
+#include <rapidjson/document.h>
+#include <rapidjson/istreamwrapper.h>
+#include <rapidjson/writer.h>
+#include <rapidjson/stringbuffer.h>
 #include <iostream>
+#include <fstream>
+#include <string>
+#include <unordered_map>
+#include <vector>
+#include <functional>
+#include <cmath>
+#include <chrono>
+#include <filesystem>
+#include "config_read_writer/config_read.hpp"
+#include <iostream>
+#include "xArm6.h"
 
 auto read_file(std::string path) -> std::string {
     // reads file from path and stores it in string
@@ -32,37 +41,7 @@ auto read_file(std::string path) -> std::string {
     return out;
 }
 
-std::vector<float> parse_float_vector_json(const rapidjson::Document &json_doc,const  std::string key) {
-    // read json array by key
-
-    std::vector<float> result;
-    if (!json_doc.HasMember(key.c_str())) {
-        throw std::runtime_error("Error: no value for key " + key + " found in json");
-    }
-    const rapidjson::Value &value = json_doc[key.c_str()]; 
-    for (rapidjson::SizeType i = 0; i < value.Size(); i++) { // rapidjson uses SizeType instead of size_t.
-        result.push_back(value[i].GetFloat());
-    }
-
-    return result;
-}
-
-std::vector<std::string> parse_str_vector_json(const rapidjson::Document &json_doc,const  std::string key) {
-    // read json array by key
-
-    std::vector<std::string> result;
-    if (!json_doc.HasMember(key.c_str())) {
-        throw std::runtime_error("Error: no value for key " + key + " found in json");
-    }
-    const rapidjson::Value &value = json_doc[key.c_str()]; 
-    for (rapidjson::SizeType i = 0; i < value.Size(); i++) { // rapidjson uses SizeType instead of size_t.
-        result.push_back(value[i].GetString());
-    }
-
-    return result;
-}
-
-Eigen::VectorXf vectorFloatToEigenVector(std::vector<float> vec) {
+Eigen::VectorXf vectorDoubleToEigenVector(std::vector<double> vec) {
     Eigen::VectorXf eigenVec(vec.size());
     for (size_t i = 0; i < vec.size(); ++i) {
         eigenVec[i] = vec[i];
@@ -70,13 +49,48 @@ Eigen::VectorXf vectorFloatToEigenVector(std::vector<float> vec) {
     return eigenVec;
 }
 
-
-int main(int argc, char **argv) {
-    int q = argc;
-    char** w = argv;
-    if (q == **w){
-        return 0;
+void parse_my_args(int argc, char** argv, std::string& path_to_scene_json, std::string& path_to_result_folder, std::string& path_to_strrt_config_json) {
+    if (argc < 4) {
+        std::cerr << "Usage: " << argv[0] << " <path_to_scene_json> <path_to_result_folder> <path_to_strrt_config_json>" << std::endl;
+        exit(EXIT_FAILURE);
     }
+
+    path_to_scene_json = argv[1];
+    path_to_result_folder = argv[2];
+    path_to_strrt_config_json = argv[3];
+}
+
+void check_args(const std::string& path_to_scene_json, const std::string& path_to_result_folder, const std::string& path_to_strrt_config_json) {
+    if (!std::ifstream(path_to_scene_json) || !std::ifstream(path_to_strrt_config_json) || !std::filesystem::is_directory(path_to_result_folder)) {
+        throw std::runtime_error("Invalid file or directory path");
+    }
+}
+
+int main(int argc, char** argv) {
+    const std::string project_path {"./RPMPLv2" };
+	ConfigurationReader::initConfiguration(project_path);
+
+    std::string path_to_scene_json;
+    std::string path_to_result_folder;
+    std::string path_to_strrt_config_json; 
+    parse_my_args(argc, argv, path_to_scene_json, path_to_result_folder, path_to_strrt_config_json);
+    check_args(path_to_scene_json, path_to_result_folder, path_to_strrt_config_json);
+
+    MDP::ConfigReader SceneTask(path_to_scene_json);
+
+    std::ifstream config_file(path_to_strrt_config_json);
+    rapidjson::IStreamWrapper config_wrapper(config_file);
+    rapidjson::Document planner_parsed_config;
+    planner_parsed_config.ParseStream(config_wrapper);
+
+    
+    int max_planning_time_pts = planner_parsed_config["max_planning_time_pts"].GetInt();
+    float max_allowed_time_to_move = planner_parsed_config["max_allowed_time_to_move"].GetFloat();
+    bool show_GUI = planner_parsed_config["show_GUI"].GetBool();
+    float collision_check_interpolation_angle = planner_parsed_config["collision_check_interpolation_angle"].GetFloat();
+    float iteration_time_step_sec = planner_parsed_config["iteration_time_step_sec"].GetFloat();
+    bool  stop_if_path_found = planner_parsed_config["stop_if_path_found"].GetBool();
+
     std::vector<std::string> routines // Routines of which the time executions are stored
         {
             "replan [ms]",          // 0
@@ -90,23 +104,6 @@ int main(int argc, char **argv) {
     std::vector<float> iter_times{};
     std::vector<float> path_lengths{};
 
-    // 1. Parse a JSON string into DOM.
-    std::string json = read_file("./scene.json");
-    rapidjson::Document document;
-    document.Parse(json.c_str());
-
-    std::vector<std::string> joint_order = parse_str_vector_json(document, "robot_joints_order");
-
-
-
-    // Eigen::VectorXf start_conf(joint_order.size());
-    Eigen::VectorXf start_conf = vectorFloatToEigenVector(parse_float_vector_json(document, "start_configuration"));
-    
-
-    // Eigen::VectorXf end_conf(joint_order.size());
-    Eigen::VectorXf end_conf = vectorFloatToEigenVector(parse_float_vector_json(document, "end_configuration"));
-
-
     DRGBTConfig::MAX_PLANNING_TIME = 1000000000000000;
 
     if (DRGBTConfig::STATIC_PLANNER_TYPE == planning::PlannerType::RGBMTStar) {
@@ -115,19 +112,30 @@ int main(int argc, char **argv) {
 
     bool nado=true;
     while(nado){
-        scenario::Scenario scenario("./scene.yaml", "./");
-        std::shared_ptr<base::StateSpace> ss { scenario.getStateSpace() };
-        // std::shared_ptr<base::State q_start { scenario.getStart() };
-        std::shared_ptr<base::State> q_start {  std::make_shared<base::RealVectorSpaceState>(start_conf) };
-        // std::shared_ptr<base::State> q_goal { scenario.getGoal() };
-        std::shared_ptr<base::State> q_goal { std::make_shared<base::RealVectorSpaceState>(end_conf )};
-        std::shared_ptr<env::Environment> env {  scenario.getEnvironment() };
-        std::unique_ptr<planning::AbstractPlanner> planner { nullptr };
+        std::shared_ptr<env::Environment> env = std::make_shared<env::Environment>();
+        std::string json = read_file(path_to_scene_json);
+        rapidjson::Document document;
+        document.Parse(json.c_str());
+        env->parse_json_document(document);
+        std::shared_ptr<robots::xArm6> robot = std::make_shared<robots::xArm6>(SceneTask.get_scene_task().robot_urdf_path ,0,false);
+        
+        std::vector<double> temp_vel(SceneTask.get_scene_task().robot_joint_max_velocity);
+        std::vector<float> max_speed_float(temp_vel.begin(), temp_vel.end());
+        robot->setMaxVel(max_speed_float );
+
+        std::vector<double> temp_caps(SceneTask.get_scene_task().robot_capsules_radius);
+        std::vector<float> robot_capsules_radius_float(temp_caps.begin(), temp_caps.end());
+        robot->setCapsulesRadius(robot_capsules_radius_float);
+
+        std::shared_ptr<base::RealVectorSpaceHPPFCL> ss = std::make_shared<base::RealVectorSpaceHPPFCL>(SceneTask.get_scene_task().robot_joint_count, robot, env,SceneTask.get_scene_task());
+        std::shared_ptr<base::State> q_start =std::make_shared<base::RealVectorSpaceState>(vectorDoubleToEigenVector(SceneTask.get_scene_task().start_configuration)) ;
+        std::shared_ptr<base::State> q_goal  = std::make_shared<base::RealVectorSpaceState>(vectorDoubleToEigenVector(SceneTask.get_scene_task().end_configuration ));
+        std::unique_ptr<planning::AbstractPlanner> planner = std::make_unique<planning::drbt::DRGBT>(ss, q_start, q_goal);;
 
         //env->setBaseRadius(std::max(ss->robot->getCapsuleRadius(0), ss->robot->getCapsuleRadius(1)));
         //env->setRobotMaxVel(ss->robot->getMaxVel(0)); // Only velocity of the first joint matters
         // initRandomObstacles(init_num_obs, obs_dim, scenario, max_vel_obs, max_acc_obs);
-        env->parse_json_document(document);
+        // env->parse_json_document(document);
         LOG(INFO) << "Using scenario: " << "./scene.json";
         LOG(INFO) << "Environment parts: " << env->getNumObjects();
         LOG(INFO) << "Number of DOFs: " << ss->num_dimensions;
@@ -135,7 +143,6 @@ int main(int argc, char **argv) {
         LOG(INFO) << "Start: " << q_start;
         LOG(INFO) << "Goal: " << q_goal;
 
-        planner = std::make_unique<planning::drbt::DRGBT>(ss, q_start, q_goal);
         bool result{planner->solve()};
 
         LOG(INFO) << planner->getPlannerType() << " planning finished with " << (result ? "SUCCESS!" : "FAILURE!");
@@ -147,20 +154,7 @@ int main(int argc, char **argv) {
         planner->outputPlannerData("./drgbt_test.log");
 
         float path_length{0};
-        if (result) {
-            // LOG(INFO) << "Found path: ";
-            std::vector<std::shared_ptr<base::State>> path{planner->getPath()};
-            for (size_t i = 0; i < path.size(); i++) {
-                // std::cout << i << ": " << path.at(i)->getCoord().transpose() << std::endl;
-                if (i > 0)
-                    path_length += ss->getNorm(path.at(i - 1), path.at(i));
-            }
-            path_lengths.emplace_back(path_length);
-            alg_times.emplace_back(planner->getPlannerInfo()->getPlanningTime());
-            iter_times.emplace_back(planner->getPlannerInfo()->getPlanningTime() /
-                                    planner->getPlannerInfo()->getNumIterations());
-            
-        }
+      
     nado = !result;
     }
     return 0;

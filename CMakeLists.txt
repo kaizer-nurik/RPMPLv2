@@ -18,9 +18,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 message("------------------ Using compiler: ${CMAKE_CXX_COMPILER} ------------------")
 
-if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic -Werror)
-endif()
+# if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+#   add_compile_options(-Wall -Wextra -Wpedantic -Werror)
+# endif()
 
 # Only do these if this is the main project, and not if it is included through add_subdirectory
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
@@ -61,7 +61,12 @@ find_package(yaml-cpp REQUIRED)
 find_package(fcl 0.7 REQUIRED)
 find_package(nanoflann REQUIRED)
 
-set(PROJECT_LIBRARIES gtest glog gflags nanoflann::nanoflann kdl_parser orocos-kdl fcl ccd yaml-cpp)
+add_subdirectory("../STRRT_Planner/src/config_read_writer" ./config_read_writer)
+
+add_subdirectory("../STRRT_Planner/src/CollisionManager" ./CollisionManager)
+
+
+set(PROJECT_LIBRARIES gtest glog gflags nanoflann::nanoflann kdl_parser orocos-kdl fcl hpp-fcl config_read_writer CollisionManager ccd yaml-cpp)
 
 set(MAIN_PROJECT_BUILD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/build)
 

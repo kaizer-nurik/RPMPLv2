@@ -17,6 +17,7 @@ namespace env
 	{
 	public:
 		Environment(const std::string &config_file_path, const std::string &root_path = "");
+		Environment();
 		~Environment();
 
 		inline void setBaseRadius(float base_radius_) { base_radius = base_radius_; }
@@ -43,11 +44,11 @@ namespace env
 	private:
 		std::vector<std::shared_ptr<env::Object>> objects;		// All objects/parts of the environment
 		std::map<std::shared_ptr<env::Object>, std::vector<float>> objects_coords;
-        fcl::Vector3f WS_center;								// Workspace center point in [m]
-        float WS_radius; 										// Workspace radius in [m]
-		float base_radius;
-		float robot_max_vel;
-		bool table_included;
+        fcl::Vector3f WS_center{0,0,0};								// Workspace center point in [m]
+        float WS_radius=100; 										// Workspace radius in [m]
+		float base_radius=100;
+		float robot_max_vel=3;
+		bool table_included=0;
 		float elapsed_time = 0;
 		int fps=0;
 		int frame_count=0;

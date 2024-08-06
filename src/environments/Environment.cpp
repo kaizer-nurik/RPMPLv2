@@ -75,6 +75,8 @@ env::Environment::Environment(const std::string &config_file_path, const std::st
     }
 }
 
+env::Environment::Environment()
+{}
 env::Environment::~Environment()
 {
     objects.clear();
@@ -173,18 +175,18 @@ bool env::Environment::isValid(const Eigen::Vector3f &pos, float vel)
 void env::Environment::updateEnvironment(float delta_time)
 {
     elapsed_time += delta_time;
-    for (auto& [key, value] : objects_coords){
-        int frame = std::floor(elapsed_time*fps)*7;
-        Eigen::Vector3f pos{value[0+frame],value[1+frame],value[2+frame]};
-        fcl::Quaternionf q(value[6+frame],value[3+frame],value[4+frame],value[5+frame]);
-        // uncomment if q is in euler
-        // std::vector<float> rot(value.begin()+3+frame, value.begin()+5+frame);
-        // q = Eigen::AngleAxisf(rot[0], Eigen::Vector3f::UnitX())
-        //     * Eigen::AngleAxisf(rot[1], Eigen::Vector3f::UnitY())
-        //     * Eigen::AngleAxisf(rot[2], Eigen::Vector3f::UnitZ());
-        key->setQuatRotation(q);
-        key->setPosition(pos);
-    }
+    // for (auto& [key, value] : objects_coords){
+    //     int frame = std::floor(elapsed_time*fps)*7;
+    //     Eigen::Vector3f pos{value[0+frame],value[1+frame],value[2+frame]};
+    //     fcl::Quaternionf q(value[6+frame],value[3+frame],value[4+frame],value[5+frame]);
+    //     // uncomment if q is in euler
+    //     // std::vector<float> rot(value.begin()+3+frame, value.begin()+5+frame);
+    //     // q = Eigen::AngleAxisf(rot[0], Eigen::Vector3f::UnitX())
+    //     //     * Eigen::AngleAxisf(rot[1], Eigen::Vector3f::UnitY())
+    //     //     * Eigen::AngleAxisf(rot[2], Eigen::Vector3f::UnitZ());
+    //     key->setQuatRotation(q);
+    //     key->setPosition(pos);
+    // }
 
 
     // std::cout << "-------------------------------------------------" << std::endl;

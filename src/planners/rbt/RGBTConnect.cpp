@@ -90,8 +90,8 @@ std::tuple<base::State::Status, std::shared_ptr<base::State>>
     for (size_t i = 0; i < RGBTConnectConfig::NUM_LAYERS; i++)
     {
         tie(status, q_new) = extendSpine(q_new, q_e);
-        d_c = ss->computeDistanceUnderestimation(q_new, q->getNearestPoints());
-		// d_c = ss->computeDistance(q_new);	// If you want to use real distance
+        //d_c = ss->computeDistanceUnderestimation(q_new, q->getNearestPoints());
+		d_c = ss->computeDistance(q_new);	// If you want to use real distance
         if (d_c < RBTConnectConfig::D_CRIT || status == base::State::Status::Reached)
             break;
     }
@@ -114,8 +114,8 @@ std::tuple<base::State::Status, std::shared_ptr<std::vector<std::shared_ptr<base
         q_temp = ss->getNewState(q_new);
         tie(status, q_new) = extendSpine(q_temp, q_e);
 		q_new_list.emplace_back(q_new);
-        d_c = ss->computeDistanceUnderestimation(q_new, q->getNearestPoints());
-		// d_c = ss->computeDistance(q_new);	// If you want to use real distance
+        //d_c = ss->computeDistanceUnderestimation(q_new, q->getNearestPoints());
+		 d_c = ss->computeDistance(q_new);	// If you want to use real distance
         if (d_c < RBTConnectConfig::D_CRIT || status == base::State::Status::Reached)
             break;
     }
