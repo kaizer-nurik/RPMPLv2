@@ -194,39 +194,39 @@ void env::Environment::updateEnvironment(float delta_time)
 
 
 void env::Environment::parse_json_document(rapidjson::Document& doc){
-    fps  = doc["fps"].GetInt();
-	frame_count  = doc["frame_count"].GetInt();
-	const rapidjson::Value& obstacles_json = doc["obstacles"]; // Using a reference for consecutive access is handy and faster.
-	for (rapidjson::SizeType i = 0; i < obstacles_json.Size(); i++){ // rapidjson uses SizeType instead of size_t.
-		std::string label = obstacles_json[i]["name"].GetString();
-        std::shared_ptr<env::Object> object;
+    // fps  = doc["fps"].GetInt();
+	// frame_count  = doc["frame_count"].GetInt();
+	// const rapidjson::Value& obstacles_json = doc["obstacles"]; // Using a reference for consecutive access is handy and faster.
+	// for (rapidjson::SizeType i = 0; i < obstacles_json.Size(); i++){ // rapidjson uses SizeType instead of size_t.
+	// 	std::string label = obstacles_json[i]["name"].GetString();
+    //     std::shared_ptr<env::Object> object;
 
-        const rapidjson::Value& dimensions_json = obstacles_json[i]["dimensions"]; 
+    //     const rapidjson::Value& dimensions_json = obstacles_json[i]["dimensions"]; 
         
-        fcl::Vector3f dim(dimensions_json[0].GetFloat(), dimensions_json[1].GetFloat() ,dimensions_json[2].GetFloat());
+    //     fcl::Vector3f dim(dimensions_json[0].GetFloat(), dimensions_json[1].GetFloat() ,dimensions_json[2].GetFloat());
 
 
         
 
-        std::vector<float> pos_rot_in_time;
+    //     std::vector<float> pos_rot_in_time;
 
-        for (auto& array_of_pos : obstacles_json[i]["positions"].GetArray()){
-            for (auto& coords : array_of_pos.GetArray()){
-                pos_rot_in_time.push_back(coords.GetFloat());
-            }
-        }
+    //     for (auto& array_of_pos : obstacles_json[i]["positions"].GetArray()){
+    //         for (auto& coords : array_of_pos.GetArray()){
+    //             pos_rot_in_time.push_back(coords.GetFloat());
+    //         }
+    //     }
         
-        Eigen::Vector3f pos{pos_rot_in_time[0],pos_rot_in_time[1],pos_rot_in_time[2]};
-        std::vector<float> rot(pos_rot_in_time.begin()+3, pos_rot_in_time.begin()+pos_rot_in_time.size()-3);
-        fcl::Quaternionf q(rot[3],rot[0],rot[1],rot[2]);
-        // uncomment if q is in euler
-        // q = Eigen::AngleAxisf(rot[0], Eigen::Vector3f::UnitX()) 
-        //     * Eigen::AngleAxisf(rot[1], Eigen::Vector3f::UnitY())
-        //     * Eigen::AngleAxisf(rot[2], Eigen::Vector3f::UnitZ());
-        object = std::make_shared<env::Box>(dim, pos, q, label);
+    //     Eigen::Vector3f pos{pos_rot_in_time[0],pos_rot_in_time[1],pos_rot_in_time[2]};
+    //     std::vector<float> rot(pos_rot_in_time.begin()+3, pos_rot_in_time.begin()+pos_rot_in_time.size()-3);
+    //     fcl::Quaternionf q(rot[3],rot[0],rot[1],rot[2]);
+    //     // uncomment if q is in euler
+    //     // q = Eigen::AngleAxisf(rot[0], Eigen::Vector3f::UnitX()) 
+    //     //     * Eigen::AngleAxisf(rot[1], Eigen::Vector3f::UnitY())
+    //     //     * Eigen::AngleAxisf(rot[2], Eigen::Vector3f::UnitZ());
+    //     object = std::make_shared<env::Box>(dim, pos, q, label);
         
-        objects_coords[object] = pos_rot_in_time;
-        objects.emplace_back(object);
-    }
+    //     objects_coords[object] = pos_rot_in_time;
+    //     objects.emplace_back(object);
+    // }
 
 }
