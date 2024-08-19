@@ -6,6 +6,7 @@
 #include "RealVectorSpaceHPPFCL.h"
 #include "RealVectorSpaceState.h"
 #include "config_read_writer/config_read.hpp"
+#include "config_read_writer/ResultsWriter.hpp"
 #include "xArm6.h"
 #include <chrono>
 #include <cmath>
@@ -54,7 +55,7 @@ Eigen::VectorXf vectorDoubleToEigenVector(std::vector<double> vec) {
 void parse_my_args(int argc, char **argv, std::string &path_to_scene_json, std::string &path_to_result_folder,
                    std::string &path_to_strrt_config_json) {
     if (argc < 4) {
-        std::cerr << "Usage: " << argv[0] << " <path_to_scene_json> <path_to_result_folder> <path_to_strrt_config_json>"
+        std::cerr << "Usage: " << argv[0] << " <path_to_scene_json> <path_to_result_folder> <path_to_drgbt_config_json>"
                   << std::endl;
         exit(EXIT_FAILURE);
     }
@@ -83,6 +84,8 @@ int main(int argc, char **argv) {
     std::string path_to_strrt_config_json;
     parse_my_args(argc, argv, path_to_scene_json, path_to_result_folder, path_to_strrt_config_json);
     check_args(path_to_scene_json, path_to_result_folder, path_to_strrt_config_json);
+    MDP::ResultsWriter::get_instance().setup(path_to_scene_json, path_to_strrt_config_json, path_to_result_folder, MDP::ResultsWriter::PlannerType::DRGBT);
+    MDP::ResultsWriter::get_instance().algorithm_start();
 
     MDP::ConfigReader SceneTask(path_to_scene_json);
 
@@ -91,12 +94,6 @@ int main(int argc, char **argv) {
     rapidjson::Document planner_parsed_config;
     planner_parsed_config.ParseStream(config_wrapper);
 
-    int max_planning_time_pts = planner_parsed_config["max_planning_time_pts"].GetInt();
-    float max_allowed_time_to_move = planner_parsed_config["max_allowed_time_to_move"].GetFloat();
-    bool show_GUI = planner_parsed_config["show_GUI"].GetBool();
-    float collision_check_interpolation_angle = planner_parsed_config["collision_check_interpolation_angle"].GetFloat();
-    float iteration_time_step_sec = planner_parsed_config["iteration_time_step_sec"].GetFloat();
-    bool stop_if_path_found = planner_parsed_config["stop_if_path_found"].GetBool();
 
     int max_attempt = 10;
     std::vector<float> alg_times{};
@@ -109,6 +106,8 @@ int main(int argc, char **argv) {
         RGBMTStarConfig::TERMINATE_WHEN_PATH_IS_FOUND = true;
     }
 
+    MDP::ResultsWriter::get_instance().config_end();
+    bool result;
     for (int attempt = 0; attempt < max_attempt; attempt++) {
         std::shared_ptr<env::Environment> env = std::make_shared<env::Environment>();
         std::string json = read_file(path_to_scene_json);
@@ -145,7 +144,7 @@ int main(int argc, char **argv) {
         LOG(INFO) << "Start: " << q_start;
         LOG(INFO) << "Goal: " << q_goal;
 
-        bool result{planner->solve()};
+        result = planner->solve();
 
         LOG(INFO) << planner->getPlannerType() << " planning finished with " << (result ? "SUCCESS!" : "FAILURE!");
         LOG(INFO) << "Number of iterations: " << planner->getPlannerInfo()->getNumIterations();
@@ -161,42 +160,36 @@ int main(int argc, char **argv) {
             break;
         }
     }
-    
+    MDP::ResultsWriter::get_instance().solver_end();
+
+
 
     rapidjson::Document data_to_export;
+
     data_to_export.SetObject();
     rapidjson::Document::AllocatorType &allocator = data_to_export.GetAllocator();
-    data_to_export.AddMember("planner_type", "DRGBT", allocator);
-    data_to_export.AddMember("path_to_scene_json", rapidjson::StringRef(path_to_scene_json.c_str()), allocator);
-    data_to_export.AddMember("path_to_drgbt_config_json", rapidjson::StringRef("-"), allocator);
-    data_to_export.AddMember("execution_time_mcs", std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start_time).count(), allocator);
-    data_to_export.AddMember("number_of_state_validations", 0, allocator); // Replace with actual state validation count
-    data_to_export.AddMember("number_of_motion_validations", 0,
-                             allocator); // Replace with actual motion validation count
+    data_to_export.AddMember("has_result", result, MDP::ResultsWriter::get_instance().get_json_allocator());
+
+
     rapidjson::Value path_array(rapidjson::kArrayType);
     
-    for (const std::shared_ptr<base::State> &p : result_path) {
-        rapidjson::Value point_array(rapidjson::kArrayType);
-        for (double v : p->getCoord()) {
-            point_array.PushBack(v, allocator);
+    std::vector<MDP::ResultsWriter::PathState> result_path_pathstate;
+    for (const std::shared_ptr<base::State> &state : result_path)
+    {
+        double point_time = state->getTime();
+        std::vector<double> point_array;
+        for (double v : state->getCoord()) {
+            point_array.push_back(v);
         }
-
-        rapidjson::Value time_point_array(rapidjson::kArrayType);
-        time_point_array.PushBack(p->getTime(), allocator);
-        time_point_array.PushBack(point_array, allocator);
-
-        path_array.PushBack(time_point_array, allocator);
+        result_path_pathstate.emplace_back(point_array, point_time);
     }
+
+    rapidjson::Value path_json;
+    MDP::ResultsWriter::get_instance().convert_path_to_json(result_path_pathstate,path_json);
+    data_to_export.AddMember("final_path", path_json, MDP::ResultsWriter::get_instance().get_json_allocator());
     data_to_export.AddMember("path", path_array, allocator);
 
-    rapidjson::StringBuffer buffer;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-    data_to_export.Accept(writer);
+    MDP::ResultsWriter::get_instance().save_json(std::to_string(std::chrono::system_clock::to_time_t(std::chrono::system_clock::now())), data_to_export);
 
-    std::ofstream result_file(path_to_result_folder + "/drgbt_planner_logs_" +
-                              std::to_string(std::chrono::system_clock::to_time_t(std::chrono::system_clock::now())) +
-                              ".json");
-    result_file << buffer.GetString();
-    result_file.close();
     return 0;
 }
