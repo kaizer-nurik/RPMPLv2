@@ -2,6 +2,9 @@
 // Created by nermin on 14.04.22.
 //
 
+#ifndef RPMPL_DRGBTCONFIG_H
+#define RPMPL_DRGBTCONFIG_H
+
 #include <string>
 #include <PlanningTypes.h>
 
@@ -21,6 +24,8 @@ public:
     static planning::PlannerType STATIC_PLANNER_TYPE;                       // Name of a static planner (for obtaining the predefined path). Available planners: "RGBMT*", "RGBT-Connect", "RBT-Connect" and "RRT-Connect" 
     static planning::RealTimeScheduling REAL_TIME_SCHEDULING;               // "FPS" - Fixed Priority Scheduling; "None" - Without real-time scheduling    
     static float MAX_TIME_TASK1;                                            // Maximal time which Task 1 can take from the processor
-    static float MAX_TIME_UPDATE_CURRENT_STATE;                             // Maximal time for the routine 'updateCurrentState'
     static planning::TrajectoryInterpolation TRAJECTORY_INTERPOLATION;      // Method for interpolation of trajectory: "None" or "Spline"
+    static bool GUARANTEED_SAFE_MOTION;                                     // Whether robot motion is surely safe for environment
 };
+
+#endif //RPMPL_DRGBTCONFIG_H

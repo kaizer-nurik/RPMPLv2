@@ -1,15 +1,4 @@
-//
-// Created by dinko on 16.3.21.
-// Modified by nermin on 18.02.22.
-//
-
 #include "RRTConnect.h"
-#include "ConfigurationReader.h"
-
-// #include <glog/log_severity.h>
-// #include <glog/logging.h>
-// WARNING: You need to be very careful with LOG(INFO) for console output, due to a possible "stack smashing detected" error.
-// If you get this error, just use std::cout for console output.
 
 planning::rrt::RRTConnect::RRTConnect(const std::shared_ptr<base::StateSpace> ss_) : AbstractPlanner(ss_) 
 {
@@ -21,9 +10,9 @@ planning::rrt::RRTConnect::RRTConnect(const std::shared_ptr<base::StateSpace> ss
 {
 	// std::cout << "Initializing planner...\n";
 	planner_type = planning::PlannerType::RRTConnect;
-	if (!ss->isValid(q_start))
+	if (!ss->isValid(q_start) || ss->robot->checkSelfCollision(q_start))
 		throw std::domain_error("Start position is invalid!");
-	if (!ss->isValid(q_goal))
+	if (!ss->isValid(q_goal) || ss->robot->checkSelfCollision(q_goal))
 		throw std::domain_error("Goal position is invalid!");
 		
 	trees.emplace_back(std::make_shared<base::Tree>("q_start", 0));
@@ -108,7 +97,7 @@ std::tuple<base::State::Status, std::shared_ptr<base::State>> planning::rrt::RRT
 	std::shared_ptr<base::State> q_new { nullptr };
 	tie(status, q_new) = ss->interpolateEdge2(q, q_e, RRTConnectConfig::EPS_STEP);
 
-	if (ss->isValid(q, q_new))
+	if (ss->isValid(q, q_new) && !ss->robot->checkSelfCollision(q, q_new))
 		return {status, q_new};
 	else
 		return {base::State::Status::Trapped, q};

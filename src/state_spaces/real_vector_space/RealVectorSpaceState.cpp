@@ -1,8 +1,3 @@
-//
-// Created by dinko on 7.3.21.
-// Modified by nermin on 18.02.22.
-//
-
 #include "RealVectorSpaceState.h"
 
 base::RealVectorSpaceState::RealVectorSpaceState(const Eigen::VectorXf &coord_) : State(coord_)
@@ -25,4 +20,7 @@ base::RealVectorSpaceState::RealVectorSpaceState(const std::shared_ptr<base::Sta
 	nearest_points = state->getNearestPoints();
 	parent = state->getParent();
 	children = state->getChildren();
+	frames = state->getFrames();
+	skeleton = state->getSkeleton();
+	enclosing_radii = state->getEnclosingRadii();
 }

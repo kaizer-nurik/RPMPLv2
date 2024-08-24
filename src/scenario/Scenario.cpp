@@ -1,15 +1,4 @@
-//
-// Created by dinko on 17.02.22.
-// Modified by nermin on 09.02.24.
-//
-
 #include "Scenario.h"
-#include "RealVectorSpaceFCL.h"
-#include "RealVectorSpaceState.h"
-#include "Planar2DOF.h"
-#include "Planar10DOF.h"
-#include "xArm6.h"
-#include "ConfigurationReader.h"
 
 scenario::Scenario::Scenario(const std::string &config_file_path, const std::string &root_path)
 {
@@ -19,11 +8,12 @@ scenario::Scenario::Scenario(const std::string &config_file_path, const std::str
         YAML::Node robot_node { node["robot"] };
         std::string type { robot_node["type"].as<std::string>() };
         size_t num_DOFs { robot_node["num_DOFs"].as<size_t>() };
+		std::shared_ptr<robots::AbstractRobot> robot;
 
         if (type == "xarm6")
             robot = std::make_shared<robots::xArm6>(root_path + robot_node["urdf"].as<std::string>(),
                                                     robot_node["gripper_length"].as<float>(),
-                                                    robot_node["table_included"].as<bool>());
+                                                    robot_node["ground_included"].as<size_t>());
         else if (type == "planar_2DOF")
             robot = std::make_shared<robots::Planar2DOF>(root_path + robot_node["urdf"].as<std::string>());
         else if (type == "planar_10DOF")
@@ -50,9 +40,9 @@ scenario::Scenario::Scenario(const std::string &config_file_path, const std::str
             if (max_vel_node.size() != num_DOFs)
                 throw std::logic_error("The size of 'max_vel' is not correct!");
 
-            std::vector<float> max_vel {};
+            Eigen::VectorXf max_vel(num_DOFs);
             for (size_t i = 0; i < num_DOFs; i++)
-                max_vel.emplace_back(max_vel_node[i].as<float>());
+                max_vel(i) = max_vel_node[i].as<float>();
 
             robot->setMaxVel(max_vel);
         }
@@ -63,9 +53,9 @@ scenario::Scenario::Scenario(const std::string &config_file_path, const std::str
             if (max_acc_node.size() != num_DOFs)
                 throw std::logic_error("The size of 'max_acc' is not correct!");
 
-            std::vector<float> max_acc {};
+            Eigen::VectorXf max_acc(num_DOFs);
             for (size_t i = 0; i < num_DOFs; i++)
-                max_acc.emplace_back(max_acc_node[i].as<float>());
+                max_acc(i) = max_acc_node[i].as<float>();
 
             robot->setMaxAcc(max_acc);
         }
@@ -76,14 +66,18 @@ scenario::Scenario::Scenario(const std::string &config_file_path, const std::str
             if (max_jerk_node.size() != num_DOFs)
                 throw std::logic_error("The size of 'max_jerk' is not correct!");
 
-            std::vector<float> max_jerk {};
+            Eigen::VectorXf max_jerk(num_DOFs);
             for (size_t i = 0; i < num_DOFs; i++)
-                max_jerk.emplace_back(max_jerk_node[i].as<float>());
+                max_jerk(i) = max_jerk_node[i].as<float>();
                 
             robot->setMaxJerk(max_jerk);
         }
 
-        env = std::make_shared<env::Environment>(config_file_path, root_path);
+        YAML::Node self_collision_checking_node { robot_node["self_collision_checking"] };
+        if (self_collision_checking_node.IsDefined())
+            robot->setSelfCollisionChecking(self_collision_checking_node.as<bool>());
+
+        std::shared_ptr<env::Environment> env {std::make_shared<env::Environment>(config_file_path, root_path) };
         std::string state_space { robot_node["space"].as<std::string>() };
         if (state_space == "RealVectorSpace")
             ss = std::make_shared<base::RealVectorSpace>(num_DOFs, robot, env);
@@ -116,8 +110,6 @@ scenario::Scenario::Scenario(const std::string &config_file_path, const std::str
 scenario::Scenario::Scenario(std::shared_ptr<base::StateSpace> ss_, std::shared_ptr<base::State> q_start_, std::shared_ptr<base::State> q_goal_)
 {
     ss = ss_;
-    robot = ss->robot;
-    env = ss->env;
     q_start = q_start_;
     q_goal = q_goal_;
     state_space_type = ss->getStateSpaceType();

@@ -33,6 +33,7 @@ int main(int argc, char **argv)
 		// "/data/planar_2dof/scenario_test/scenario_test.yaml"
 		// "/data/planar_2dof/scenario1/scenario1.yaml"
 		// "/data/planar_2dof/scenario2/scenario2.yaml"
+		// "/data/planar_2dof/scenario_real_time/scenario_real_time.yaml"
 
 		// "/data/xarm6/scenario_test/scenario_test.yaml"
 		// "/data/xarm6/scenario1/scenario1.yaml"
@@ -46,7 +47,8 @@ int main(int argc, char **argv)
 		"computeDistance [us]", 			// 1
 		"generateGBur [ms]", 				// 2
 		"generateHorizon [us]", 			// 3
-		"updateHorizon [us]"				// 4
+		"updateHorizon [us]",				// 4
+		"updateCurrentState [us]"			// 5
 	};
 
 	// -------------------------------------------------------------------------------------- //
@@ -67,6 +69,7 @@ int main(int argc, char **argv)
 	Eigen::Vector3f obs_dim {};
 
 
+	float min_dist_start_goal { node["robot"]["min_dist_start_goal"].as<float>() };
 	size_t init_num_test { node["testing"]["init_num"].as<size_t>() };
 	size_t init_num_success_test { node["testing"]["init_num_success"].as<size_t>() };
 	const size_t max_num_tests { node["testing"]["max_num"].as<size_t>() };
@@ -169,7 +172,7 @@ int main(int argc, char **argv)
 				LOG(INFO) << "Start: " << q_start;
 				LOG(INFO) << "Goal: " << q_goal;
 				
-				planner = std::make_unique<planning::drbt::DRGBT>(ss, q_start, q_goal);
+				planner = std::make_unique<planning::drbt::DRGBT>(ss, scenario.getStart(), scenario.getGoal());
 				bool result { planner->solve() };
 				
 				LOG(INFO) << planner->getPlannerType() << " planning finished with " << (result ? "SUCCESS!" : "FAILURE!");
@@ -229,25 +232,25 @@ int main(int argc, char **argv)
 				LOG(INFO) << "Number of successful tests: " << num_success_tests << " of " << num_test 
 						  << " = " << 100.0 * num_success_tests / num_test << " %";
 				LOG(INFO) << "--------------------------------------------------------------------\n\n";
-				num_test++;
 			}
 			catch (std::exception &e)
 			{
 				LOG(ERROR) << e.what();
 			}
 
+			num_test++;
 			if ((reach_successful_tests && num_success_tests == max_num_tests) || (!reach_successful_tests && num_test > max_num_tests))
 				break;
 		}
 
 		init_num_test = 1;
 		init_num_success_test = 0;
-		init_num_obs += std::pow(10, std::floor(std::log10(init_num_obs)));
+		init_num_obs += (init_num_obs > 0) ? std::pow(10, std::floor(std::log10(init_num_obs))) : 1;
 
-		LOG(INFO) << "Success rate: " << 100.0 * num_success_tests / (num_test - 1) << " [%]";
+		LOG(INFO) << "Success rate:                     " << 100.0 * num_success_tests / (num_test - 1) << " [%]";
 		LOG(INFO) << "Average algorithm execution time: " << getMean(alg_times) << " +- " << getStd(alg_times) << " [s]";
 		LOG(INFO) << "Average iteration execution time: " << getMean(iter_times) * 1e3 << " +- " << getStd(iter_times) * 1e3 << " [ms]";
-		LOG(INFO) << "Average path length: " << getMean(path_lengths) << " +- " << getStd(path_lengths) << " [rad]";
+		LOG(INFO) << "Average path length:              " << getMean(path_lengths) << " +- " << getStd(path_lengths) << " [rad]";
 		LOG(INFO) << "\n--------------------------------------------------------------------\n\n";
 	}
 

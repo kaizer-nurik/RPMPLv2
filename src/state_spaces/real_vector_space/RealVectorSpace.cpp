@@ -1,22 +1,13 @@
-//
-// Created by dinko on 07.03.21.
-// Modified by nermin on 07.03.22.
-//
-
 #include "RealVectorSpace.h"
-#include "RealVectorSpaceConfig.h"
-#include "xArm6.h"
 
 base::RealVectorSpace::RealVectorSpace(size_t num_dimensions_) : StateSpace(num_dimensions_)
 {
-	srand((unsigned int) time(0));
 	setStateSpaceType(base::StateSpaceType::RealVectorSpace);
 }
 
 base::RealVectorSpace::RealVectorSpace(size_t num_dimensions_, const std::shared_ptr<robots::AbstractRobot> robot_, 
 	const std::shared_ptr<env::Environment> env_) : StateSpace(num_dimensions_, robot_, env_)	
 {
-	srand((unsigned int) time(0));
 	setStateSpaceType(base::StateSpaceType::RealVectorSpace);
 }
 
@@ -45,7 +36,7 @@ std::shared_ptr<base::State> base::RealVectorSpace::getRandomState(const std::sh
 		q_rand += q_center->getCoord();
 
 	// std::cout << "Random state coord: " << q_rand.transpose();
-	return std::make_shared<base::RealVectorSpaceState>(q_rand);
+	return getNewState(q_rand);
 }
 
 // Get a copy of 'state'
@@ -75,6 +66,15 @@ bool base::RealVectorSpace::isEqual(const std::shared_ptr<base::State> q1, const
 	return false;
 }
 
+// Check if two vectors are equal
+bool base::RealVectorSpace::isEqual(const Eigen::VectorXf &q1_coord, const Eigen::VectorXf &q2_coord)
+{
+	if ((q1_coord - q2_coord).norm() < RealVectorSpaceConfig::EQUALITY_THRESHOLD)
+		return true;
+	
+	return false;
+}
+
 // Interpolate edge from 'q1' to 'q2' for step 'step'
 // 'dist' (optional parameter) is the distance between 'q1' and 'q2'
 // Return a new state
@@ -90,7 +90,7 @@ std::shared_ptr<base::State> base::RealVectorSpace::interpolateEdge
 	else
 		q_new_coord = q2->getCoord();
 
-	return std::make_shared<base::RealVectorSpaceState>(q_new_coord);
+	return getNewState(q_new_coord);
 }
 
 // Interpolate edge from 'q1' to 'q2' for step 'step'
@@ -163,31 +163,106 @@ std::shared_ptr<base::State> base::RealVectorSpace::pruneEdge(const std::shared_
 			}
 		}
 		if (found)
-			return std::make_shared<base::RealVectorSpaceState>(q_new_coord);
+			return getNewState(q_new_coord);
 	}
 
 	return q2;
 }
 
-// Prune the edge from 'q1' to 'q2', where 'q1' is the center of a box which all dimensions are the same and equal to '2*delta_q_max'.
+// Prune the edge from 'q1' to 'q2', where 'q1' is the center of a box which all dimensions are the same and equal to '2*max_edge_length'.
 // Return a result state: 'q_new' if there is prunning, and 'q2' if not.
 std::shared_ptr<base::State> base::RealVectorSpace::pruneEdge2(const std::shared_ptr<base::State> q1, 
-	const std::shared_ptr<base::State> q2, float delta_q_max)
+	const std::shared_ptr<base::State> q2, float max_edge_length)
 {
 	Eigen::VectorXf::Index idx {};
 	float delta_q12_max { (q2->getCoord() - q1->getCoord()).cwiseAbs().maxCoeff(&idx) };
 	
-	if (delta_q12_max > delta_q_max)
+	if (delta_q12_max > max_edge_length)
 	{
 		int sign { (q2->getCoord(idx) - q1->getCoord(idx) > 0) ? 1 : -1 };
-		float limit { q1->getCoord(idx) + sign * delta_q_max };
-		float t { (limit - q1->getCoord(idx)) / (q2->getCoord(idx) - q1->getCoord(idx)) };
-		Eigen::VectorXf q_new_coord { q1->getCoord() + t * (q2->getCoord() - q1->getCoord()) };
-		
-		return std::make_shared<base::RealVectorSpaceState>(q_new_coord);
+		float limit { q1->getCoord(idx) + sign * max_edge_length };
+		float t { (limit - q1->getCoord(idx)) / (q2->getCoord(idx) - q1->getCoord(idx)) };		
+		return getNewState(q1->getCoord() + t * (q2->getCoord() - q1->getCoord()));
 	}
 
 	return q2;
+}
+
+/// @brief Generate a new path 'new_path' from a path 'original_path' in a way that the distance between two adjacent nodes
+/// is fixed (if possible) to a length of 'max_edge_length'. Geometrically, the new path remains the same as the original one,
+/// but only their nodes may differ.
+/// @param original_path Original path that will be transformed.
+/// @param new_path New resulting path.
+/// @param max_edge_length Maximal edge length.
+void base::RealVectorSpace::preprocessPath(const std::vector<std::shared_ptr<base::State>> &original_path, 
+    std::vector<std::shared_ptr<base::State>> &new_path, float max_edge_length)
+{
+    new_path.clear();
+    new_path.emplace_back(original_path.front());
+	std::vector<std::shared_ptr<base::State>> path { original_path.front() };
+    std::shared_ptr<base::State> q0 { nullptr };
+    std::shared_ptr<base::State> q1 { nullptr };
+    std::shared_ptr<base::State> q2 { nullptr };
+
+	// std::cout << "Original path is: \n";
+    // for (size_t i = 0; i < original_path.size(); i++)
+    //     std::cout << original_path[i]->getCoord().transpose() << "\n";
+    // std::cout << std::endl;
+
+	for (size_t i = 1; i < original_path.size() - 1; i++)
+	{
+        q0 = original_path[i-1];
+        q1 = original_path[i];
+		q2 = original_path[i+1];
+
+		for (size_t k = 1; k < num_dimensions; k++)
+		{
+			if (std::abs((q2->getCoord(k) - q1->getCoord(k)) / (q1->getCoord(k) - q0->getCoord(k)) - 
+						 (q2->getCoord(k-1) - q1->getCoord(k-1)) / (q1->getCoord(k-1) - q0->getCoord(k-1))) > 
+				RealVectorSpaceConfig::EQUALITY_THRESHOLD)
+			{
+				path.emplace_back(q1);
+				break;
+			}
+		}
+	}
+	path.emplace_back(original_path.back());
+
+	// std::cout << "Modified path is: \n";
+    // for (size_t i = 0; i < path.size(); i++)
+    //     std::cout << path[i]->getCoord().transpose() << "\n";
+    // std::cout << std::endl;
+
+    base::State::Status status { base::State::Status::None };
+    float dist {};
+
+    for (size_t i = 1; i < path.size(); i++)
+    {
+        status = base::State::Status::Advanced;
+        q0 = path[i-1];
+        q1 = path[i];
+
+        while (status == base::State::Status::Advanced)
+        {
+			dist = getNorm(q0, q1);
+            if (dist > max_edge_length)
+            {
+				q0 = interpolateEdge(q0, q1, max_edge_length, dist);
+                status = base::State::Status::Advanced;
+            }
+			else
+			{
+				q0 = q1;
+                status = base::State::Status::Reached;
+			}
+            new_path.emplace_back(q0);
+        }
+    }
+
+    // std::cout << "Preprocessed path is: \n";
+    // for (size_t i = 0; i < new_path.size(); i++)
+    //     std::cout << new_path[i]->getCoord().transpose() << "\n";
+    // std::cout << std::endl;
 }
 
 bool base::RealVectorSpace::isValid(const std::shared_ptr<base::State> q1, const std::shared_ptr<base::State> q2)
@@ -214,8 +289,7 @@ bool base::RealVectorSpace::isValid(const std::shared_ptr<base::State> q)
 	{
     	for (size_t j = 0; j < env->getNumObjects(); j++)
 		{
-			if ((env->getObject(j)->getLabel() == "table" && (i == 0 || i == 1)) && 
-				robot->getType().find("with_table") != std::string::npos)
+			if (env->getObject(j)->getLabel() == "ground" && i < robot->getGroundIncluded())
 				continue;
             else if (env->getCollObject(j)->getNodeType() == fcl::NODE_TYPE::GEOM_BOX)
 			{
@@ -242,20 +316,23 @@ bool base::RealVectorSpace::isValid(const std::shared_ptr<base::State> q)
     return true;
 }
 
-// Return a minimal distance from the robot in configuration 'q' to obstacles
-// Compute a minimal distance from each robot's link in configuration 'q' to obstacles, i.e., compute a distance profile function
-// Moreover, set 'd_c', 'd_c_profile', and corresponding 'nearest_points' for the configuation 'q'
-// If 'compute_again' is true, the new distance profile will be computed again!
+/// @brief Compute a minimal distance from the robot in configuration 'q' to obstacles using methods from 'CollisionAndDistance' class.
+/// In other words, compute a minimal distance from each robot's link in configuration 'q' to obstacles, 
+/// i.e., compute a distance profile function. 
+/// Moreover, set 'd_c', 'd_c_profile', and corresponding 'nearest_points' for the configuation 'q'.
+/// @param q Configuration of the robot.
+/// @param compute_again If true, a new distance profile will be computed again! Default: false.
+/// @return Minimal distance from the robot in configuration 'q' to obstacles.
 float base::RealVectorSpace::computeDistance(const std::shared_ptr<base::State> q, bool compute_again)
 {
 	if (!compute_again && q->getDistance() > 0 && q->getIsRealDistance())
 		return q->getDistance();
 
-	float d_c_temp { INFINITY };
+	float d_c_temp {};
 	float d_c { INFINITY };
 	std::vector<float> d_c_profile(robot->getNumLinks(), 0);
 	std::shared_ptr<std::vector<Eigen::MatrixXf>> nearest_points { std::make_shared<std::vector<Eigen::MatrixXf>>
-		(std::vector<Eigen::MatrixXf>(env->getNumObjects(), Eigen::MatrixXf(6, robot->getNumLinks()))) };
+		(env->getNumObjects(), Eigen::MatrixXf(6, robot->getNumLinks())) };
 	std::shared_ptr<Eigen::MatrixXf> nearest_pts { std::make_shared<Eigen::MatrixXf>(3, 2) };
 	std::shared_ptr<Eigen::MatrixXf> skeleton { robot->computeSkeleton(q) };
 
@@ -264,8 +341,7 @@ float base::RealVectorSpace::computeDistance(const std::shared_ptr<base::State> 
 		d_c_profile[i] = INFINITY;
     	for (size_t j = 0; j < env->getNumObjects(); j++)
 		{
-			if ((env->getObject(j)->getLabel() == "table" && (i == 0 || i == 1)) && 
-				robot->getType().find("with_table") != std::string::npos)
+			if (env->getObject(j)->getLabel() == "ground" && i < robot->getGroundIncluded())
 			{
 				d_c_temp = INFINITY;
 				nearest_pts->col(0) << 0, 0, 0; 			// Robot nearest point
@@ -296,6 +372,9 @@ float base::RealVectorSpace::computeDistance(const std::shared_ptr<base::State> 
                 tie(d_c_temp, nearest_pts) = distanceCapsuleToSphere(skeleton->col(i), skeleton->col(i+1), robot->getCapsuleRadius(i), obs);
             }
 
+			if (d_c_temp > env->getObject(j)->getMinDistTol())
+				d_c_temp = INFINITY;
+
 			d_c_profile[i] = std::min(d_c_profile[i], d_c_temp);
             if (d_c_profile[i] <= 0)		// The collision occurs
 			{
@@ -320,17 +399,21 @@ float base::RealVectorSpace::computeDistance(const std::shared_ptr<base::State> 
 	return d_c;
 }
 
-// Return an underestimation of distance-to-obstacles 'd_c', i.e. return a distance-to-planes, 
-// Compute an underestimation of distance-to-obstacles 'd_c' for each robot's link, 
-// i.e. compute the distance-to-planes profile function, when robot is in the configuration 'q', 
-// where planes approximate obstacles, and are generated according to 'nearest_points'
+/// @brief Compute an underestimation of distance-to-obstacles 'd_c', i.e., a distance-to-planes, for each robot's link,
+/// i.e., compute a distance-to-planes profile function, when the robot takes a configuration 'q'.
+/// Planes approximate obstacles, and are generated according to 'nearest_points'.
+/// @param q Configuration of the robot.
+/// @param nearest_points Nearest points between the robot and obstacles.
+/// @return Underestimation of distance-to-obstacles.
+/// Note that if 'd_c' is negative, it means that one or more robot's links are penetrating through the plane,
+/// or they are located on the other side of the plane.
 float base::RealVectorSpace::computeDistanceUnderestimation(const std::shared_ptr<base::State> q, 
 	const std::shared_ptr<std::vector<Eigen::MatrixXf>> nearest_points)
 {
 	if (q->getDistance() > 0 && q->getIsRealDistance()) 	// Real distance was already computed
 		return q->getDistance();
 	
-	float d_c_temp { INFINITY };
+	float d_c_temp {};
     float d_c { INFINITY };
 	std::vector<float> d_c_profile(robot->getNumLinks(), 0);
     Eigen::Vector3f R {};		// Robot's nearest point
@@ -343,29 +426,29 @@ float base::RealVectorSpace::computeDistanceUnderestimation(const std::shared_pt
         for (size_t j = 0; j < env->getNumObjects(); j++)
         {
             O = nearest_points->at(j).col(i).tail(3);
-			if (O.norm() < INFINITY)
-			{
-				R = nearest_points->at(j).col(i).head(3);
-				d_c_temp = std::min(std::abs((R - O).dot(skeleton->col(i) - O)) / (R - O).norm(), 
-									std::abs((R - O).dot(skeleton->col(i+1) - O)) / (R - O).norm()) 
-									- robot->getCapsuleRadius(i);
-				d_c_profile[i] = std::min(d_c_profile[i], d_c_temp);
+			if (O.norm() == INFINITY)
+				continue;
+			
+			R = nearest_points->at(j).col(i).head(3);
+			d_c_temp = std::min((skeleton->col(i) - O).dot((R - O).normalized()), 
+								(skeleton->col(i+1) - O).dot((R - O).normalized())) 
+								- robot->getCapsuleRadius(i);
+			if (d_c_temp < 0)
+				return 0;
 
-				// std::cout << "(i, j) = " << "(" << i << ", " << j << "):" << std::endl;
-				// std::cout << "Robot nearest point:    " << R.transpose() << std::endl;
-				// std::cout << "Obstacle nearest point: " << O.transpose() << std::endl;
-				// std::cout << "d_c: " << d_c_profile[i] << std::endl;
-			}
+			d_c_profile[i] = std::min(d_c_profile[i], d_c_temp);
+
+			// std::cout << "(i, j) = " << "(" << i << ", " << j << "):" << std::endl;
+			// std::cout << "Robot nearest point:    " << R.transpose() << std::endl;
+			// std::cout << "Obstacle nearest point: " << O.transpose() << std::endl;
+			// std::cout << "d_c: " << d_c_profile[i] << std::endl;
 		}
 		d_c = std::min(d_c, d_c_profile[i]);
     }
 
-	if (d_c > q->getDistance())		// Also, if it was previously computed (q->getDistance() > 0), take "better" (greater) one
-	{
-		q->setDistance(d_c);
-		q->setDistanceProfile(d_c_profile);
-		q->setIsRealDistance(false);
-	}
+	q->setDistance(d_c);
+	q->setDistanceProfile(d_c_profile);
+	q->setIsRealDistance(false);
 
-	return q->getDistance();
+	return d_c;
 }
