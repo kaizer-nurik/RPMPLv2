@@ -6,12 +6,13 @@ planning::drbt::DRGBT::DRGBT(const std::shared_ptr<base::StateSpace> ss_) : RGBT
 }
 
 planning::drbt::DRGBT::DRGBT(const std::shared_ptr<base::StateSpace> ss_, const std::shared_ptr<base::State> q_start_,
-                             const std::shared_ptr<base::State> q_goal_) : RGBTConnect(ss_)
+                             const std::shared_ptr<base::State> q_goal_,double low_bound_time_ ) : RGBTConnect(ss_)
 {
 	// std::cout << "Initializing DRGBT planner... \n";
     planner_type = planning::PlannerType::DRGBT;
     q_start = q_start_;
     q_goal = q_goal_;
+    low_bound_time = low_bound_time_;
 	if (!ss->isValid(q_start) || ss->robot->checkSelfCollision(q_start))
 		throw std::domain_error("Start position is invalid!");
     
@@ -61,7 +62,7 @@ bool planning::drbt::DRGBT::solve()
     // Initial iteration: Obtaining an inital path using specified static planner
     // std::cout << "Iteration: " << planner_info->getNumIterations() << "\n";
     // std::cout << "Obtaining an inital path... \n";
-    replan(DRGBTConfig::MAX_ITER_TIME);
+    replan(10);
     planner_info->setNumIterations(planner_info->getNumIterations() + 1);
     planner_info->addIterationTime(getElapsedTime(time_iter_start));
     // std::cout << "----------------------------------------------------------------------------------------\n";
@@ -114,7 +115,7 @@ bool planning::drbt::DRGBT::solve()
         if (whetherToReplan())
         {
             // std::cout << "TASK 2: Replanning... \n";
-            replan(DRGBTConfig::MAX_ITER_TIME - getElapsedTime(time_iter_start));
+            replan(10);
             // std::cout << "Time elapsed: " << getElapsedTime(time_iter_start, planning::TimeUnit::ms) << " [ms] \n";
         }
         // else
@@ -575,7 +576,8 @@ void planning::drbt::DRGBT::computeNextState()
     }
 
     q_next_previous = q_next;
-    std::cout << "Setting the robot next state to: " << q_next->getCoord().transpose() << "\n";
+    std::cout << ss->env->getTime() <<std::endl;
+    std::cout << "Setting the robot next state to: " << q_next->getCoord().transpose() <<std::endl;
     
     // std::cout << "Horizon consists of " << horizon.size() << " states: \n";
     // for (size_t i = 0; i < horizon.size(); i++)

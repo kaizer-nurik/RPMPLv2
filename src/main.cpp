@@ -22,6 +22,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <Eigen/Core>
 
 
 
@@ -93,6 +94,17 @@ int main(int argc, char **argv) {
     rapidjson::IStreamWrapper config_wrapper(config_file);
     rapidjson::Document planner_parsed_config;
     planner_parsed_config.ParseStream(config_wrapper);
+    
+    // TODO: optimise collision manager construction and dont construct in space validity checker, or find another way to get joint limits
+    std::shared_ptr<MDP::CollisionManager> collision_manager = std::make_shared<MDP::CollisionManager>(SceneTask.get_scene_task());
+    std::vector<std::pair<float, float>> joint_limits = collision_manager->get_planned_robot_limits();
+    int low_bound_frame  = collision_manager->get_goal_frame_low_bound();
+    double low_bound_time =  (double)low_bound_frame/ (double)SceneTask.get_scene_task().fps;
+
+    for (int joint_ind = 0; joint_ind < SceneTask.get_scene_task().robot_joint_count; joint_ind++)
+    {
+        assert(joint_limits[joint_ind].first != joint_limits[joint_ind].second);
+    }
 
 
     int max_attempt = 10;
@@ -119,7 +131,8 @@ int main(int argc, char **argv) {
 
         std::vector<double> temp_vel(SceneTask.get_scene_task().robot_joint_max_velocity);
         std::vector<float> max_speed_float(temp_vel.begin(), temp_vel.end());
-        robot->setMaxVel(max_speed_float);
+        Eigen::Map<Eigen::VectorXf> max_speed_eigen(max_speed_float.data(),max_speed_float.size());
+        robot->setMaxVel(max_speed_eigen);
         env->setRobotMaxVel(robot->getMaxVel(0)); // Only velocity of the first joint matters
 
         std::vector<double> temp_caps(SceneTask.get_scene_task().robot_capsules_radius);
@@ -134,8 +147,8 @@ int main(int argc, char **argv) {
         std::shared_ptr<base::State> q_goal = std::make_shared<base::RealVectorSpaceState>(
             vectorDoubleToEigenVector(SceneTask.get_scene_task().end_configuration));
         std::unique_ptr<planning::AbstractPlanner> planner =
-            std::make_unique<planning::drbt::DRGBT>(ss, q_start, q_goal);
-        ;
+            std::make_unique<planning::drbt::DRGBT>(ss, q_start, q_goal, low_bound_time);
+        
 
         LOG(INFO) << "Using scenario: " << "./scene.json";
         LOG(INFO) << "Environment parts: " << env->getNumObjects();

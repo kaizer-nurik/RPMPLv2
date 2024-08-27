@@ -60,18 +60,22 @@ void planning::drbt::DRGBT::replan(float max_planning_time)
         if (max_planning_time <= 0)
             throw std::runtime_error("Not enough time for replanning! ");
 
+        if (ss->env->getTime()<low_bound_time){
+            throw std::runtime_error("Goal state time is not valid! skipping planning...");
+            
+        }
         switch (DRGBTConfig::REAL_TIME_SCHEDULING)
         {
         case planning::RealTimeScheduling::FPS:
-            // std::cout << "Replanning with Fixed Priority Scheduling \n";
-            // std::cout << "Trying to replan in " << max_planning_time * 1e3 << " [ms]... \n";
+            std::cout << "Replanning with Fixed Priority Scheduling \n";
+            std::cout << "Trying to replan in " << max_planning_time * 1e3 << " [ms]... \n";
             planner = initStaticPlanner(max_planning_time);
             result = planner->solve();
             break;
         
         case planning::RealTimeScheduling::None:
-            // std::cout << "Replanning without real-time scheduling \n";
-            // std::cout << "Trying to replan in " << max_planning_time * 1e3 << " [ms]... \n";
+            std::cout << "Replanning without real-time scheduling \n";
+            std::cout << "Trying to replan in " << max_planning_time * 1e3 << " [ms]... \n";
             planner = initStaticPlanner(max_planning_time);
             result = planner->solve();
             break;
@@ -80,7 +84,7 @@ void planning::drbt::DRGBT::replan(float max_planning_time)
         // New path is found within the specified time limit, thus update the predefined path to the goal
         if (result && planner->getPlannerInfo()->getPlanningTime() <= max_planning_time)
         {
-            // std::cout << "The path has been replanned in " << planner->getPlannerInfo()->getPlanningTime() * 1000 << " [ms]. \n";
+            std::cout << "The path has been replanned in " << planner->getPlannerInfo()->getPlanningTime() * 1000 << " [ms]. \n";
             ss->preprocessPath(planner->getPath(), predefined_path, max_edge_length);
             horizon.clear();
             status = base::State::Status::Reached;
@@ -93,7 +97,7 @@ void planning::drbt::DRGBT::replan(float max_planning_time)
     }
     catch (std::exception &e)
     {
-        // std::cout << "Replanning is required. " << e.what() << "\n";
+        std::cout << "Replanning is required. " << e.what() << "\n";
         replanning_required = true;
     }
 }
