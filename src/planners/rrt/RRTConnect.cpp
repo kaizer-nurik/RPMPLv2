@@ -97,7 +97,7 @@ std::tuple<base::State::Status, std::shared_ptr<base::State>> planning::rrt::RRT
 	std::shared_ptr<base::State> q_new { nullptr };
 	tie(status, q_new) = ss->interpolateEdge2(q, q_e, RRTConnectConfig::EPS_STEP);
 
-	if (ss->isValid(q, q_new) && !ss->robot->checkSelfCollision(q, q_new))
+	if (ss->isValid(q, q_new))// && !ss->robot->checkSelfCollision(q, q_new))
 		return {status, q_new};
 	else
 		return {base::State::Status::Trapped, q};

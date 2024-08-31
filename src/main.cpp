@@ -107,7 +107,7 @@ int main(int argc, char **argv) {
     }
 
 
-    int max_attempt = 10;
+    int max_attempt = 1;
     std::vector<float> alg_times{};
     std::vector<float> iter_times{};
     std::vector<float> path_lengths{};

@@ -123,9 +123,9 @@ std::tuple<base::State::Status, std::shared_ptr<base::State>> planning::rbt::RBT
 		else
 			q_new = ss->getNewState(q_temp->getCoord() + step * (q_e->getCoord() - q_temp->getCoord()));
 
-		self_collision = ss->robot->checkSelfCollision(q_temp, q_new);
-		if (self_collision)
-			status = !ss->isEqual(q_temp, q_new) ? base::State::Status::Advanced : base::State::Status::Trapped;
+		// self_collision = ss->robot->checkSelfCollision(q_temp, q_new);
+		// if (self_collision)
+		// 	status = !ss->isEqual(q_temp, q_new) ? base::State::Status::Advanced : base::State::Status::Trapped;
 		
 		if (++counter == RBTConnectConfig::NUM_ITER_SPINE || status != base::State::Status::Advanced || self_collision)
 			return { status, q_new };

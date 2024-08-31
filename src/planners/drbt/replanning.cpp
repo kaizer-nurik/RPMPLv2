@@ -25,19 +25,20 @@ bool planning::drbt::DRGBT::whetherToReplan()
 std::unique_ptr<planning::AbstractPlanner> planning::drbt::DRGBT::initStaticPlanner(float max_planning_time)
 {
     // std::cout << "Static planner (for replanning): " << DRGBTConfig::STATIC_PLANNER_TYPE << "\n";
+    std::shared_ptr<base::State> q_goal_ { ss->getNewState(q_goal->getCoord()) };
     switch (DRGBTConfig::STATIC_PLANNER_TYPE)
     {
     case planning::PlannerType::RGBMTStar:
         RGBMTStarConfig::MAX_PLANNING_TIME = max_planning_time;
-        return std::make_unique<planning::rbt_star::RGBMTStar>(ss, q_current, q_goal);
+        return std::make_unique<planning::rbt_star::RGBMTStar>(ss, q_current, q_goal_);
 
     case planning::PlannerType::RGBTConnect:
         RGBTConnectConfig::MAX_PLANNING_TIME = max_planning_time;
-        return std::make_unique<planning::rbt::RGBTConnect>(ss, q_current, q_goal);
+        return std::make_unique<planning::rbt::RGBTConnect>(ss, q_current, q_goal_);
     
     case planning::PlannerType::RBTConnect:
         RBTConnectConfig::MAX_PLANNING_TIME = max_planning_time;
-        return std::make_unique<planning::rbt::RBTConnect>(ss, q_current, q_goal);
+        return std::make_unique<planning::rbt::RBTConnect>(ss, q_current, q_goal_);
 
     case planning::PlannerType::RRTConnect:
         RRTConnectConfig::MAX_PLANNING_TIME = max_planning_time;
@@ -67,15 +68,15 @@ void planning::drbt::DRGBT::replan(float max_planning_time)
         switch (DRGBTConfig::REAL_TIME_SCHEDULING)
         {
         case planning::RealTimeScheduling::FPS:
-            std::cout << "Replanning with Fixed Priority Scheduling \n";
-            std::cout << "Trying to replan in " << max_planning_time * 1e3 << " [ms]... \n";
+            // std::cout << "Replanning with Fixed Priority Scheduling \n";
+            // std::cout << "Trying to replan in " << max_planning_time * 1e3 << " [ms]... \n";
             planner = initStaticPlanner(max_planning_time);
             result = planner->solve();
             break;
         
         case planning::RealTimeScheduling::None:
-            std::cout << "Replanning without real-time scheduling \n";
-            std::cout << "Trying to replan in " << max_planning_time * 1e3 << " [ms]... \n";
+            // std::cout << "Replanning without real-time scheduling \n";
+            // std::cout << "Trying to replan in " << max_planning_time * 1e3 << " [ms]... \n";
             planner = initStaticPlanner(max_planning_time);
             result = planner->solve();
             break;
@@ -84,7 +85,7 @@ void planning::drbt::DRGBT::replan(float max_planning_time)
         // New path is found within the specified time limit, thus update the predefined path to the goal
         if (result && planner->getPlannerInfo()->getPlanningTime() <= max_planning_time)
         {
-            std::cout << "The path has been replanned in " << planner->getPlannerInfo()->getPlanningTime() * 1000 << " [ms]. \n";
+            // std::cout << "The path has been replanned in " << planner->getPlannerInfo()->getPlanningTime() * 1000 << " [ms]. \n";
             ss->preprocessPath(planner->getPath(), predefined_path, max_edge_length);
             horizon.clear();
             status = base::State::Status::Reached;

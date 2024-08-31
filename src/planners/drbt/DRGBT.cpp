@@ -13,7 +13,7 @@ planning::drbt::DRGBT::DRGBT(const std::shared_ptr<base::StateSpace> ss_, const 
     q_start = q_start_;
     q_goal = q_goal_;
     low_bound_time = low_bound_time_;
-	if (!ss->isValid(q_start) || ss->robot->checkSelfCollision(q_start))
+	if (!ss->isValid(q_start))// || ss->robot->checkSelfCollision(q_start))
 		throw std::domain_error("Start position is invalid!");
     
     q_current = q_start;
