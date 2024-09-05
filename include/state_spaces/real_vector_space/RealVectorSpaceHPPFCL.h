@@ -17,5 +17,7 @@ namespace base
 		
 		bool isValid(const std::shared_ptr<base::State> q) override;
 		float computeDistance(const std::shared_ptr<base::State> q, bool compute_again) override;
+		bool check_robot_selfcollision(const std::shared_ptr<base::State> q1,std::shared_ptr<base::State> & q2) override;
+
 	};
 }

@@ -168,8 +168,8 @@ int main(int argc, char **argv) {
         planner->outputPlannerData("./drgbt_test.log");
 
         float path_length{0};
+        result_path = planner->getPath();
         if (result) {
-            result_path = planner->getPath();
             break;
         }
     }

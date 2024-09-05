@@ -98,7 +98,7 @@ void planning::drbt::DRGBT::replan(float max_planning_time)
     }
     catch (std::exception &e)
     {
-        std::cout << "Replanning is required. " << e.what() << "\n";
+        // std::cout << "Replanning is required. " << e.what() << "\n";
         replanning_required = true;
     }
 }

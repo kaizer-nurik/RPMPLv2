@@ -93,7 +93,10 @@ bool planning::drbt::DRGBT::solve()
             
         updateHorizon();                // ~ 10 [us]
         generateGBur();                 // ~ 10 [ms] Time consuming routine... 
-        computeNextState();             // ~ 1 [us]
+    //     std::cout << "Initial horizon consists of " << horizon.size() << " states: \n";
+    // for (size_t i = 0; i < horizon.size(); i++)
+    //     std::cout << i << ". state:\n" << horizon[i] << "\n";
+         computeNextState();             // ~ 1 [us]
         
         auto time_updateCurrentState { std::chrono::steady_clock::now() };
         switch (DRGBTConfig::TRAJECTORY_INTERPOLATION)
@@ -576,8 +579,8 @@ void planning::drbt::DRGBT::computeNextState()
     }
 
     q_next_previous = q_next;
-    std::cout << ss->env->getTime() <<std::endl;
-    std::cout << "Setting the robot next state to: " << q_next->getCoord().transpose() <<std::endl;
+    // std::cout << ss->env->getTime() <<std::endl;
+    // std::cout << "Setting the robot next state to: " << q_next->getCoord().transpose() <<std::endl;
     
     // std::cout << "Horizon consists of " << horizon.size() << " states: \n";
     // for (size_t i = 0; i < horizon.size(); i++)

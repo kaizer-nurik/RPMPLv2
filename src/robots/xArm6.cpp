@@ -227,8 +227,8 @@ std::shared_ptr<Eigen::MatrixXf> robots::xArm6::computeSkeleton(const std::share
 	skeleton->col(6) << frames->at(5).p.x(), frames->at(5).p.y(), frames->at(5).p.z();
 
     // Correct the last skeleton point regarding the attached gripper.
-	KDL::Vector a { frames->back().M.UnitZ() };
-	skeleton->col(6) -= 0.3 * gripper_length * Eigen::Vector3f(a.x(), a.y(), a.z());	// Line (*)
+	// KDL::Vector a { frames->back().M.UnitZ() };
+	// skeleton->col(6) -= 0.3 * gripper_length * Eigen::Vector3f(a.x(), a.y(), a.z());	// Line (*)
 	
 	q->setSkeleton(skeleton);
 	return skeleton;
