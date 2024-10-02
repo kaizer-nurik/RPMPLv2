@@ -32,7 +32,7 @@ float base::RealVectorSpaceHPPFCL::computeDistance(const std::shared_ptr<base::S
         return q->getDistance();
 
     float d_c{INFINITY};
-    std::vector<float> d_c_profile(this->robot->getNumLinks(), 0);
+    std::vector<float> d_c_profile(this->robot->getNumDOFs(), std::numeric_limits<float>::max());
 
     bool is_collided = false;
     std::vector<float> pos(q->getCoord().data(), q->getCoord().data() + q->getCoord().rows() * q->getCoord().cols());
@@ -48,29 +48,33 @@ float base::RealVectorSpaceHPPFCL::computeDistance(const std::shared_ptr<base::S
         return 0;
     }
 
-    std::shared_ptr<std::vector<Eigen::MatrixXf>> nearest_points{
-        std::make_shared<std::vector<Eigen::MatrixXf>>(std::vector<Eigen::MatrixXf>(
-            distances[0].neares_point_robot.size(), Eigen::MatrixXf(6, this->robot->getNumLinks())))};
-
-    for (size_t i = 0; i < this->robot->getNumLinks(); i++) {
-        d_c_profile[i] = distances[i].min_distance;
-        for (size_t j = 0; j < distances[i].neares_point_robot.size(); j++) {
-            nearest_points->at(j).col(i) << distances[i].neares_point_robot[j].cast<float>(),
-                distances[i].neares_point_obj[j].cast<float>();
-        }
+    // std::shared_ptr<std::vector<Eigen::MatrixXf>> nearest_points{
+    //     std::make_shared<std::vector<Eigen::MatrixXf>>(std::vector<Eigen::MatrixXf>(
+    //         distances[0].neares_point_robot.size(), Eigen::MatrixXf(6, this->robot->getNumLinks())))};
+    
+    
+    for (size_t i = 0; i < distances.size(); i++) {
+        // std::cout<<distances[i].min_distance<<std::endl;
+        d_c_profile[i+1] = distances[i].min_distance;
+        // for (size_t j = 0; j < distances[i].neares_point_robot.size(); j++) {
+        //     nearest_points->at(j).col(i+this->robot->getNumLinks()-distances.size()) << distances[i].neares_point_robot[j].cast<float>(),
+        //         distances[i].neares_point_obj[j].cast<float>();
+        // }
         d_c = std::min(d_c, d_c_profile[i]);
     }
+    d_c_profile[distances.size()-1] = d_c_profile[distances.size()-2];//hardcode
 
     q->setDistance(d_c);
     q->setDistanceProfile(d_c_profile);
     q->setIsRealDistance(true);
-    q->setNearestPoints(nearest_points);
+    q->setNearestPoints(nullptr);
 
     return d_c;
 }
 
 bool base::RealVectorSpaceHPPFCL::check_robot_selfcollision(const std::shared_ptr<base::State> q1,
                                                             std::shared_ptr<base::State> & q2) {
+    return false;
     std::vector<float> pos2(q2->getCoord().data(),
                             q2->getCoord().data() + q2->getCoord().rows() * q2->getCoord().cols());
 

@@ -1,6 +1,11 @@
 # Note that headers are optional, and do not affect add_library, but they will not
 # show up in IDEs unless they are listed in add_library.
 
+set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_CXX_FLAGS "-march=native -mtune=native -O3 ")
+set(CMAKE_C_FLAGS "-march=native -mtune=native -O3 ")
+
+
 set(INCLUDE_DIRS 
 	${PROJECT_SOURCE_DIR}/include
         ${PROJECT_SOURCE_DIR}/include/state_spaces

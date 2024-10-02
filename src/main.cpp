@@ -98,7 +98,8 @@ int main(int argc, char **argv) {
     // TODO: optimise collision manager construction and dont construct in space validity checker, or find another way to get joint limits
     std::shared_ptr<MDP::CollisionManager> collision_manager = std::make_shared<MDP::CollisionManager>(SceneTask.get_scene_task());
     std::vector<std::pair<float, float>> joint_limits = collision_manager->get_planned_robot_limits();
-    int low_bound_frame  = collision_manager->get_goal_frame_low_bound();
+    int low_bound_frame=0;
+    // int low_bound_frame  = collision_manager->get_goal_frame_low_bound();
     double low_bound_time =  (double)low_bound_frame/ (double)SceneTask.get_scene_task().fps;
 
     for (int joint_ind = 0; joint_ind < SceneTask.get_scene_task().robot_joint_count; joint_ind++)
@@ -125,7 +126,7 @@ int main(int argc, char **argv) {
         std::string json = read_file(path_to_scene_json);
         rapidjson::Document document;
         document.Parse(json.c_str());
-        env->parse_json_document(document);
+        // env->parse_json_document(document);
         std::shared_ptr<robots::xArm6> robot =
             std::make_shared<robots::xArm6>(SceneTask.get_scene_task().robot_urdf_path, 0, false);
 

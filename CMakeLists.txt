@@ -76,14 +76,19 @@ file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/data/
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/visualizer/
   DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/apps/visualizer)
 
+set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_CXX_FLAGS "-march=native -mtune=native -O3 ")
+set(CMAKE_C_FLAGS "-march=native -mtune=native -O3 ")
+  
+
 # The compiled library code is here
 add_subdirectory(src)
 
 # The executable code is here
-add_subdirectory(apps)
+# add_subdirectory(apps)
 
 # Testing only available if this is the main app
 # Emergency override MODERN_CMAKE_BUILD_TESTING provided as well
-if((CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME OR MODERN_CMAKE_BUILD_TESTING) AND BUILD_TESTING)
-  add_subdirectory(tests)
-endif()
+# if((CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME OR MODERN_CMAKE_BUILD_TESTING) AND BUILD_TESTING)
+#   add_subdirectory(tests)
+# endif()

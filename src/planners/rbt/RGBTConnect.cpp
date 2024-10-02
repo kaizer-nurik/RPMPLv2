@@ -37,16 +37,24 @@ bool planning::rbt::RGBTConnect::solve()
 				q_e = getRandomState(q_near);				
 				tie(status, q_new_list) = extendGenSpine2(q_near, q_e);
                 trees[tree_idx]->upgradeTree(q_new_list->front(), q_near);
+				std::vector<std::shared_ptr<base::State>> q_new_list_norm;
+				
+				for (size_t j = 0; j < q_new_list->size(); j++)	
+					q_new_list_norm.push_back(q_new_list->at(j));
+
                 for (size_t j = 1; j < q_new_list->size(); j++)
 				    trees[tree_idx]->upgradeTree(q_new_list->at(j), q_new_list->at(j-1));
 			}
             q_new = q_new_list->back();
+			// std::cout<<"44 "<<q_new<<std::endl;
 		}
 		else	// Distance-to-obstacles is less than d_crit
 		{
 			tie(status, q_new) = extend(q_near, q_e);
 			if (status != base::State::Status::Trapped)
 				trees[tree_idx]->upgradeTree(q_new, q_near);
+			// std::cout<<"51 "<<q_new<<std::endl;
+
 		}
 		
 		tree_idx = 1 - tree_idx; 	// Swapping trees
@@ -124,6 +132,8 @@ base::State::Status planning::rbt::RGBTConnect::connectGenSpine
 	
 	while (status == base::State::Status::Advanced && num_ext++ < RRTConnectConfig::MAX_EXTENSION_STEPS)
 	{
+		// std::cout<<"130 "<<q_new<<std::endl;
+
 		q_temp = ss->getNewState(q_new);
 		if (d_c > RBTConnectConfig::D_CRIT)
 		{

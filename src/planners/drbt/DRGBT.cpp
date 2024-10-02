@@ -583,7 +583,7 @@ void planning::drbt::DRGBT::computeNextState()
     // std::cout << "Setting the robot next state to: " << q_next->getCoord().transpose() <<std::endl;
     
     // std::cout << "Horizon consists of " << horizon.size() << " states: \n";
-    // for (size_t i = 0; i < horizon.size(); i++)
+    // for (size_t i = 0; i < 5; i++)
     //     std::cout << i << ". state:\n" << horizon[i] << "\n";
 }
 
